@@ -1,45 +1,68 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Node.js Torrent Player Test</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #121212;
-            color: #e0e0e0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            flex-direction: column;
-        }
-        h1 {
-            color: #fff;
-        }
-        video {
-            width: 80%;
-            max-width: 900px;
-            border: 2px solid #333;
-            border-radius: 8px;
-            background-color: #000;
-        }
-        p {
-            max-width: 80%;
-            text-align: center;
-            color: #aaa;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CineStream</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #fff;
+      text-align: center;
+      padding: 2rem;
+    }
+    input {
+      width: 60%;
+      padding: 10px;
+      border-radius: 5px;
+      border: none;
+      margin-right: 10px;
+    }
+    button {
+      padding: 10px 15px;
+      border: none;
+      background: #28a745;
+      color: white;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #218838;
+    }
+    video {
+      margin-top: 20px;
+      width: 80%;
+      max-width: 900px;
+      border-radius: 8px;
+      background: black;
+    }
+  </style>
 </head>
 <body>
-    <h1>Node.js Torrent Stream Test</h1>
-    <p>This video is being streamed from a Node.js server running in the backend, using the <strong>webtorrent-hybrid</strong> library. The torrent is for the public domain film "Night of the Living Dead" (1968).</p>
-    <video controls autoplay muted>
-        <source src="/stream" type="video/mp4">
-        Your browser does not support the video tag.
-    </video>
+  <h1>CineStream 🎬</h1>
+  <p>Paste a Magnet Link to Start Streaming</p>
+
+  <div>
+    <input id="magnetInput" type="text" placeholder="Enter magnet link here..." />
+    <button onclick="playTorrent()">Play</button>
+  </div>
+
+  <video id="videoPlayer" controls></video>
+
+  <script>
+    function playTorrent() {
+      const magnet = document.getElementById("magnetInput").value.trim();
+      if (!magnet) {
+        alert("Please enter a magnet link!");
+        return;
+      }
+
+      const video = document.getElementById("videoPlayer");
+      video.src = `/stream?magnet=${encodeURIComponent(magnet)}`;
+      video.play();
+    }
+  </script>
 </body>
 </html>

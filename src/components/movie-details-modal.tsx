@@ -62,7 +62,7 @@ export function MovieDetailsModal({
   const [torrents, setTorrents] = useState<TorrentLink[]>([]);
   const [isFetchingLinks, setIsFetchingLinks] = useState(true);
   const [isFetchingDetails, setIsFetchingDetails] = useState(true);
-  const [playerInfo, setPlayerInfo] = useState<{ hash: string; title: string; magnetUri: string } | null>(null);
+  const [playerInfo, setPlayerInfo] = useState<{ title: string; magnetUri: string } | null>(null);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -70,7 +70,8 @@ export function MovieDetailsModal({
     if (isOpen) {
       if (directStreamInfo) {
         setItem(undefined);
-        setPlayerInfo({ hash: directStreamInfo.hash, title: directStreamInfo.name, magnetUri: `magnet:?xt=urn:btih:${directStreamInfo.hash}` });
+        const magnetUri = `magnet:?xt=urn:btih:${directStreamInfo.hash}&dn=${encodeURIComponent(directStreamInfo.name)}`;
+        setPlayerInfo({ title: directStreamInfo.name, magnetUri: magnetUri });
         setIsFetchingDetails(false);
         setIsFetchingLinks(false);
       } else if (initialItem) {
@@ -125,7 +126,8 @@ export function MovieDetailsModal({
   }, [isOpen, initialItem, toast, directStreamInfo]);
   
   const handlePlay = (torrent: TorrentLink) => {
-    setPlayerInfo({ hash: torrent.hash, title: item?.title || torrent.name, magnetUri: `magnet:?xt=urn:btih:${torrent.hash}` });
+    const magnetUri = `magnet:?xt=urn:btih:${torrent.hash}&dn=${encodeURIComponent(torrent.name)}`;
+    setPlayerInfo({ title: item?.title || torrent.name, magnetUri: magnetUri });
   };
   
   const handleBackToDetails = () => {
