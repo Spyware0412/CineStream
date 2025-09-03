@@ -1,0 +1,45 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node.js Torrent Player Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+        }
+        h1 {
+            color: #fff;
+        }
+        video {
+            width: 80%;
+            max-width: 900px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            background-color: #000;
+        }
+        p {
+            max-width: 80%;
+            text-align: center;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <h1>Node.js Torrent Stream Test</h1>
+    <p>This video is being streamed from a Node.js server running in the backend, using the <strong>webtorrent-hybrid</strong> library. The torrent is for the public domain film "Night of the Living Dead" (1968).</p>
+    <video controls autoplay muted>
+        <source src="/stream" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+</body>
+</html>
