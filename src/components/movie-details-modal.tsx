@@ -20,7 +20,6 @@ import { Skeleton } from "./ui/skeleton";
 import { getMovieLinksAction, getMediaDetailsAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "./ui/badge";
-import { TorrentPlayer } from "./torrent-player";
 
 interface MovieDetailsModalProps {
   item?: MediaItem;
@@ -176,6 +175,35 @@ export function MovieDetailsModal({
     );
   };
   
+  const renderPlayer = () => {
+    if (!playerInfo) return null;
+    const videoSrc = `/api/stream?magnet=${encodeURIComponent(playerInfo.magnetUri)}`;
+    
+    return (
+        <div className="p-6">
+            <div className="w-full flex flex-col gap-4">
+                <div className="w-full aspect-video bg-black rounded-lg relative overflow-hidden group">
+                    <video 
+                        src={videoSrc} 
+                        className="w-full h-full object-contain" 
+                        controls 
+                        autoPlay
+                    />
+                </div>
+                <div className="flex justify-between items-center">
+                    <div>
+                    <h2 className="text-xl font-bold">{playerInfo.title}</h2>
+                    </div>
+                    <Button onClick={handleBackToDetails} variant="outline">
+                        <Clapperboard className="mr-2 h-4 w-4" />
+                        Back to details
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+  }
+
   const renderDetails = () => {
     if (!item) return null;
     return (
@@ -282,17 +310,7 @@ export function MovieDetailsModal({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] grid-rows-[auto_1fr] p-0">
-         {playerInfo ? (
-            <div className="p-6">
-               <TorrentPlayer
-                 title={playerInfo.title}
-                 magnetUri={playerInfo.magnetUri}
-                 onBack={handleBackToDetails} 
-               />
-            </div>
-         ) : (
-            renderDetails()
-         )}
+         {playerInfo ? renderPlayer() : renderDetails()}
       </DialogContent>
     </Dialog>
   );
