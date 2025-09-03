@@ -75,22 +75,14 @@ export function TorrentPlayer({ magnetUri, title, onBack }: TorrentPlayerProps) 
 
     return () => {
       document.body.removeChild(script);
-      if (clientRef.current) {
-        clientRef.current.destroy(() => addLog("WebTorrent client destroyed."));
-      }
     };
   }, [addLog, toast]);
 
   useEffect(() => {
     if (!isScriptLoaded || !magnetUri) return;
 
-    if (clientRef.current) {
-        addLog("Destroying existing torrent client.");
-        clientRef.current.destroy();
-    }
-    
     addLog("Creating new WebTorrent client.");
-    clientRef.current = new window.WebTorrent({
+    const client = new window.WebTorrent({
         tracker: {
             rtcConfig: {
                 iceServers: [
@@ -100,7 +92,7 @@ export function TorrentPlayer({ magnetUri, title, onBack }: TorrentPlayerProps) 
             },
         },
     });
-    const client = clientRef.current;
+    clientRef.current = client;
 
     client.on('error', (err: Error) => {
         const errorMsg = `Client error: ${err.message}`;
@@ -108,7 +100,7 @@ export function TorrentPlayer({ magnetUri, title, onBack }: TorrentPlayerProps) 
         setError(errorMsg);
     });
 
-    const enhancedMagnetUri = magnetUri + '&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com';
+    const enhancedMagnetUri = magnetUri + '&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337';
     addLog(`Adding torrent: ${title}`);
 
     client.add(enhancedMagnetUri, (torrent: any) => {
@@ -162,13 +154,14 @@ export function TorrentPlayer({ magnetUri, title, onBack }: TorrentPlayerProps) 
           setPeers(torrent.numPeers);
           setProgress(torrent.progress * 100);
       }, 1000);
-
+      
       return () => clearInterval(interval);
     });
 
     return () => {
-        if(clientRef.current) {
-            clientRef.current.destroy(() => addLog("WebTorrent client cleaned up on component unmount."));
+        if (clientRef.current && !clientRef.current.destroyed) {
+            clientRef.current.destroy(() => addLog("WebTorrent client destroyed."));
+            clientRef.current = null;
         }
     }
 
