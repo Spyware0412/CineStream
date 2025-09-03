@@ -1,0 +1,62 @@
+diff --git a/node_modules/webtorrent/index.js b/node_modules/webtorrent/index.js
+index f1364d952675971a473f32c3886f7b4c4897f2b9..83279f7236d655f48f3b772b38865f12e87c06c5 100644
+--- a/node_modules/webtorrent/index.js
++++ b/node_modules/webtorrent/index.js
+@@ -10,7 +10,7 @@
+  * @param {Object=} opts
+  */
+ class WebTorrent extends EventEmitter {
+-  constructor (opts) {
++  constructor (opts = {}) {
+     super()
+ 
+     if (!opts) opts = {}
+@@ -19,10 +19,6 @@
+     this.dht = opts.dht !== false
+     this.lsd = opts.lsd !== false
+     this.tracker = opts.tracker !== false
+-    if (typeof opts.peerId === 'string') {
+-      this.peerId = opts.peerId
+-    } else if (Buffer.isBuffer(opts.peerId)) {
+-      this.peerId = opts.peerId.toString('hex')
+-    } else {
+-      this.peerId = Buffer.from('-' + common.CLIENT_PREFIX + common.VERSION + '-')
+-    }
+ 
+     this.torrents = []
+     this.destroyed = false
+@@ -35,6 +31,14 @@
+ 
+     if (this.dht) this.dht = new DHT(opts.dht)
+ 
++    if (typeof opts.peerId === 'string') {
++      this.peerId = opts.peerId
++    } else if (Buffer.isBuffer(opts.peerId)) {
++      this.peerId = opts.peerId.toString('hex')
++    } else {
++      this.peerId = Buffer.from('-' + common.CLIENT_PREFIX + common.VERSION + '-')
++    }
++
+     this._downloadSpeed = speedometer()
+     this._uploadSpeed = speedometer()
+ 
+diff --git a/node_modules/webtorrent/lib/fs-storage.js b/node_modules/webtorrent/lib/fs-storage.js
+index 924e2c075727c9f4d1e23f03ac6e245a4eb392f0..876274488de1b32f2fa955f2c450bd34d4040a6b 100644
+--- a/node_modules/webtorrent/lib/fs-storage.js
++++ b/node_modules/webtorrent/lib/fs-storage.js
+@@ -4,7 +4,6 @@
+ const os = require('os')
+ const path = require('path')
+ const raf = require('random-access-file')
+-const safeBuffer = require('safe-buffer')
+ const torrentPieces = require('torrent-pieces')
+ const dezalgo = require('dezalgo')
+ 
+@@ -13,7 +12,6 @@
+ const ERR_DESTROYED = 'storage is destroyed'
+ 
+ const TMP = getTmpDir()
+-const Buffer = safeBuffer.Buffer
+ 
+ class FSStorage {
+   constructor (chunkStore, opts) {
