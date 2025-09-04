@@ -20,78 +20,76 @@ declare global {
 export function TorrentPlayer({ magnetUri, title, onBack }: TorrentPlayerProps) {
   const playerRef = useRef<HTMLDivElement>(null);
   const playerInstance = useRef<any>(null);
-  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+  const scriptStatus = useRef('idle'); // 'idle' | 'loading' | 'loaded'
   const [isPlayerReady, setIsPlayerReady] = useState(false);
 
   useEffect(() => {
     const scriptId = 'player-sdk-js-script';
     const scriptSrc = 'https://cdn.jsdelivr.net/npm/player-sdk-js@1.0.9/dist/player-sdk.min.js';
 
-    // Check if the script is already on the page
-    if (document.getElementById(scriptId) || window.Player) {
-      setIsScriptLoaded(true);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.id = scriptId;
-    script.src = scriptSrc;
-    script.async = true;
-    script.onload = () => {
-      setIsScriptLoaded(true);
-    };
-    script.onerror = () => {
-      console.error("Failed to load player-sdk-js script.");
-    }
-    
-    document.body.appendChild(script);
-
-    return () => {
-      const existingScript = document.getElementById(scriptId);
-      if (existingScript) {
-        // Optional: you might not want to remove it if other components use it
-        // document.body.removeChild(existingScript);
+    const initializePlayer = () => {
+      if (!playerRef.current || playerInstance.current) {
+        return;
       }
-    }
+      
+      console.log('Initializing player-sdk-js...');
+      setIsPlayerReady(false);
 
-  }, []);
-
-  useEffect(() => {
-    if (!isScriptLoaded || !playerRef.current) {
-      return;
-    }
+      try {
+        playerInstance.current = new window.Player({
+          selector: `#${playerRef.current.id}`,
+          source: magnetUri,
+          autoPlay: true,
+          title: title,
+          logLevel: 'debug'
+        });
+        playerInstance.current.on('ready', () => {
+          console.log('Player is ready.');
+          setIsPlayerReady(true);
+        });
+        playerInstance.current.on('error', (err: any) => {
+            console.error('Player SDK Error:', err);
+        });
+      } catch (error) {
+         console.error("Failed to initialize player-sdk-js:", error);
+      }
+    };
     
-    if (playerInstance.current) {
-        playerInstance.current.destroy();
-        playerInstance.current = null;
-    }
-    
-    console.log('Initializing player-sdk-js...');
-    setIsPlayerReady(false);
-
-    try {
-      playerInstance.current = new window.Player({
-        selector: `#${playerRef.current.id}`,
-        source: magnetUri,
-        autoPlay: true,
-        title: title,
-        logLevel: 'debug'
-      });
-      playerInstance.current.on('ready', () => {
-        setIsPlayerReady(true);
-      });
-    } catch (error) {
-       console.error("Failed to initialize player-sdk-js:", error);
+    // If script is loaded, just initialize
+    if (scriptStatus.current === 'loaded' && window.Player) {
+      initializePlayer();
+    } 
+    // If script is not loaded, load it
+    else if (scriptStatus.current === 'idle') {
+      scriptStatus.current = 'loading';
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = scriptSrc;
+      script.async = true;
+      script.onload = () => {
+        console.log("Player SDK script loaded successfully.");
+        scriptStatus.current = 'loaded';
+        initializePlayer();
+      };
+      script.onerror = () => {
+        console.error("Failed to load player-sdk-js script.");
+        scriptStatus.current = 'idle'; // Reset on error
+      }
+      document.body.appendChild(script);
     }
     
     return () => {
       if (playerInstance.current) {
         console.log('Destroying player-sdk-js instance.');
-        playerInstance.current.destroy();
+        try {
+            playerInstance.current.destroy();
+        } catch (e) {
+            console.warn("Could not destroy player instance:", e);
+        }
         playerInstance.current = null;
       }
     };
-  }, [isScriptLoaded, magnetUri, title]);
+  }, [magnetUri, title]);
 
   return (
     <div className="w-full flex flex-col gap-4">
