@@ -13,101 +13,136 @@ interface TorrentPlayerProps {
 
 declare global {
     interface Window {
-        WebTorrent: any;
+        WebTorrent?: any;
     }
 }
 
 export function TorrentPlayer({ magnetUri, title, onBack }: TorrentPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const clientRef = useRef<any>(null);
+  
+  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState("Loading Player...");
 
+  // Effect to load the WebTorrent script once.
   useEffect(() => {
     const scriptId = 'webtorrent-sdk-script';
-    const scriptSrc = 'https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js';
+    
+    if (document.getElementById(scriptId) || window.WebTorrent) {
+      setIsScriptLoaded(true);
+      return;
+    }
 
-    // Function to initialize the player
-    const initializePlayer = () => {
-        if (window.WebTorrent && videoRef.current) {
-            console.log('WebTorrent SDK loaded, initializing client.');
-            setStatus('Initializing Torrent Client...');
-            
-            // Ensure client is only created once
-            if (clientRef.current) {
-                try {
-                    clientRef.current.destroy();
-                } catch (e) {
-                    console.warn("Error destroying previous client instance:", e);
-                }
-            }
+    const script = document.createElement('script');
+    script.id = scriptId;
+    script.src = 'https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js';
+    script.async = true;
+    
+    script.onload = () => {
+      console.log('WebTorrent SDK script loaded successfully.');
+      setIsScriptLoaded(true);
+    };
 
-            const client = new window.WebTorrent();
-            clientRef.current = client;
+    script.onerror = () => {
+      console.error("Failed to load WebTorrent script.");
+      setStatus("Error: Could not load required player script.");
+      setIsLoading(false);
+    };
 
-            client.on('error', (err: any) => {
-              console.error('WebTorrent Client Error:', err);
-              setStatus(`Error: ${err.message}`);
-              setIsLoading(false);
-            });
-            
-            setStatus('Fetching torrent metadata...');
-            client.add(magnetUri, (torrent: any) => {
-              console.log('Torrent metadata received.');
-              setStatus('Starting stream...');
+    document.body.appendChild(script);
 
-              const file = torrent.files.find((f: any) => 
-                f.name.endsWith('.mp4') || f.name.endsWith('.mkv') || f.name.endsWith('.avi')
-              );
-              
-              if (file && videoRef.current) {
-                console.log('Appending video file to player:', file.name);
-                file.renderTo(videoRef.current, { autoplay: true });
-                setIsLoading(false);
-                setStatus('');
-              } else {
-                console.warn('No compatible video file found in torrent.');
-                setStatus('No compatible video file found in torrent.');
-                setIsLoading(false);
-              }
-            });
+    return () => {
+        const existingScript = document.getElementById(scriptId);
+        if (existingScript) {
+            // In a standard environment, you might remove the script.
+            // But for stability, we'll leave it in case other components need it.
         }
     };
+  }, []); // Empty dependency array ensures this runs only once.
+
+
+  // Effect to manage the WebTorrent client and torrents.
+  useEffect(() => {
+    if (!isScriptLoaded || !videoRef.current) {
+        return;
+    }
+
+    // Initialize client if it doesn't exist.
+    if (!clientRef.current) {
+      console.log('Initializing WebTorrent client.');
+      setStatus('Initializing Torrent Client...');
+      try {
+        clientRef.current = new window.WebTorrent();
+        clientRef.current.on('error', (err: any) => {
+          console.error('WebTorrent Client Error:', err);
+          setStatus(`Error: ${err.message}`);
+          setIsLoading(false);
+        });
+      } catch (err) {
+        console.error('Failed to construct WebTorrent client:', err);
+        setStatus('Error: Failed to initialize player.');
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    const client = clientRef.current;
     
-    // Check if the script is already loaded
-    if (document.getElementById(scriptId)) {
-        initializePlayer();
-    } else {
-        // If not, create and append the script
-        const script = document.createElement('script');
-        script.id = scriptId;
-        script.src = scriptSrc;
-        script.async = true;
-        // The initialization logic MUST be in the onload callback
-        script.onload = () => {
-             initializePlayer();
-        };
-        script.onerror = () => {
-            console.error("Failed to load WebTorrent script.");
-            setStatus("Failed to load required player script.");
-            setIsLoading(false);
-        };
-        document.body.appendChild(script);
+    // Clear any existing torrents before adding a new one.
+    if(client.torrents.length > 0) {
+        console.log(`Destroying ${client.torrents.length} existing torrents.`);
+        // Create a copy of the array to safely iterate while destroying
+        const torrentsToDestroy = [...client.torrents];
+        torrentsToDestroy.forEach(t => t.destroy());
     }
     
-    // Cleanup function
+    console.log('Adding new torrent:', magnetUri);
+    setIsLoading(true);
+    setStatus('Fetching torrent metadata...');
+
+    client.add(magnetUri, (torrent: any) => {
+      console.log('Torrent metadata received for:', torrent.name);
+      setStatus('Starting stream...');
+
+      const file = torrent.files.find((f: any) => 
+        f.name.endsWith('.mp4') || f.name.endsWith('.mkv') || f.name.endsWith('.avi')
+      );
+      
+      if (file && videoRef.current) {
+        console.log('Appending video file to player:', file.name);
+        file.renderTo(videoRef.current, { autoplay: true });
+        setIsLoading(false);
+        setStatus('');
+      } else {
+        console.warn('No compatible video file found in torrent.');
+        setStatus('No compatible video file found in torrent.');
+        setIsLoading(false);
+      }
+    });
+
+    // This is the cleanup function for THIS torrent, not the client.
     return () => {
-      console.log('Cleaning up WebTorrent client.');
-      if (clientRef.current) {
-        try {
-            clientRef.current.destroy();
-            clientRef.current = null;
-        } catch (e) {
-            console.warn("Could not destroy WebTorrent client during cleanup:", e);
-        }
+      const torrent = client.get(magnetUri);
+      if (torrent) {
+        console.log('Cleaning up torrent:', torrent.name);
+        torrent.destroy();
       }
     };
-  }, [magnetUri]);
+
+  }, [magnetUri, isScriptLoaded]); // Re-run only when magnetUri or script loaded status changes.
+
+  // Effect to clean up the client only when the component fully unmounts.
+  useEffect(() => {
+    return () => {
+      if (clientRef.current) {
+        console.log('Component unmounting. Destroying WebTorrent client.');
+        clientRef.current.destroy();
+        clientRef.current = null;
+      }
+    };
+  }, []); // Empty dependency array ensures this runs only on unmount.
+
 
   return (
     <div className="w-full flex flex-col gap-4">
