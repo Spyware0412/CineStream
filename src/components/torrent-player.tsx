@@ -21,21 +21,72 @@ export function TorrentPlayer({ magnetUri, title, onBack }: TorrentPlayerProps) 
   const videoRef = useRef<HTMLVideoElement>(null);
   const clientRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [status, setStatus] = useState("Loading WebTorrent...");
-  const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [status, setStatus] = useState("Loading Player...");
 
   useEffect(() => {
     const scriptId = 'webtorrent-sdk-script';
     const scriptSrc = 'https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js';
 
+    // Function to initialize the player
+    const initializePlayer = () => {
+        if (window.WebTorrent && videoRef.current) {
+            console.log('WebTorrent SDK loaded, initializing client.');
+            setStatus('Initializing Torrent Client...');
+            
+            // Ensure client is only created once
+            if (clientRef.current) {
+                try {
+                    clientRef.current.destroy();
+                } catch (e) {
+                    console.warn("Error destroying previous client instance:", e);
+                }
+            }
+
+            const client = new window.WebTorrent();
+            clientRef.current = client;
+
+            client.on('error', (err: any) => {
+              console.error('WebTorrent Client Error:', err);
+              setStatus(`Error: ${err.message}`);
+              setIsLoading(false);
+            });
+            
+            setStatus('Fetching torrent metadata...');
+            client.add(magnetUri, (torrent: any) => {
+              console.log('Torrent metadata received.');
+              setStatus('Starting stream...');
+
+              const file = torrent.files.find((f: any) => 
+                f.name.endsWith('.mp4') || f.name.endsWith('.mkv') || f.name.endsWith('.avi')
+              );
+              
+              if (file && videoRef.current) {
+                console.log('Appending video file to player:', file.name);
+                file.renderTo(videoRef.current, { autoplay: true });
+                setIsLoading(false);
+                setStatus('');
+              } else {
+                console.warn('No compatible video file found in torrent.');
+                setStatus('No compatible video file found in torrent.');
+                setIsLoading(false);
+              }
+            });
+        }
+    };
+    
+    // Check if the script is already loaded
     if (document.getElementById(scriptId)) {
-        setScriptLoaded(true);
+        initializePlayer();
     } else {
+        // If not, create and append the script
         const script = document.createElement('script');
         script.id = scriptId;
         script.src = scriptSrc;
         script.async = true;
-        script.onload = () => setScriptLoaded(true);
+        // The initialization logic MUST be in the onload callback
+        script.onload = () => {
+             initializePlayer();
+        };
         script.onerror = () => {
             console.error("Failed to load WebTorrent script.");
             setStatus("Failed to load required player script.");
@@ -43,62 +94,10 @@ export function TorrentPlayer({ magnetUri, title, onBack }: TorrentPlayerProps) 
         };
         document.body.appendChild(script);
     }
-  }, []);
-
-
-  useEffect(() => {
-    if (!scriptLoaded || !videoRef.current) return;
-
-    console.log('WebTorrent SDK loaded, initializing client.');
-    setStatus('Initializing Torrent Client...');
     
-    // Ensure client is only created once
-    if (!clientRef.current) {
-        clientRef.current = new window.WebTorrent();
-    }
-    
-    const client = clientRef.current;
-
-    client.on('error', (err: any) => {
-      console.error('WebTorrent Client Error:', err);
-      setStatus(`Error: ${err.message}`);
-      setIsLoading(false);
-    });
-    
-    // Remove any existing torrents before adding a new one
-    if (client.torrents.length > 0) {
-        // Create a copy of the torrents array before iterating
-        const torrentsToRemove = [...client.torrents];
-        torrentsToRemove.forEach((t: any) => {
-            try {
-                t.destroy();
-            } catch (e) {
-                console.warn("Error destroying existing torrent:", e);
-            }
-        });
-    }
-
-    setStatus('Fetching torrent metadata...');
-    client.add(magnetUri, (torrent: any) => {
-      console.log('Torrent metadata received.');
-      setStatus('Starting stream...');
-      const file = torrent.files.find((f: any) => f.name.endsWith('.mp4'));
-      
-      if (file && videoRef.current) {
-        console.log('Appending video file to player.');
-        file.renderTo(videoRef.current, { autoplay: true });
-        setIsLoading(false);
-        setStatus('');
-      } else {
-        console.warn('No .mp4 file found in torrent.');
-        setStatus('No compatible video file found in torrent.');
-        setIsLoading(false);
-      }
-    });
-
+    // Cleanup function
     return () => {
       console.log('Cleaning up WebTorrent client.');
-      // Only destroy if the client instance exists
       if (clientRef.current) {
         try {
             clientRef.current.destroy();
@@ -108,7 +107,7 @@ export function TorrentPlayer({ magnetUri, title, onBack }: TorrentPlayerProps) 
         }
       }
     };
-  }, [magnetUri, scriptLoaded]);
+  }, [magnetUri]);
 
   return (
     <div className="w-full flex flex-col gap-4">
