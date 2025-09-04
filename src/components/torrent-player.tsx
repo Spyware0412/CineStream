@@ -13,96 +13,94 @@ interface TorrentPlayerProps {
 
 declare global {
     interface Window {
-        Player: any;
+        WebTorrent: any;
     }
 }
 
 export function TorrentPlayer({ magnetUri, title, onBack }: TorrentPlayerProps) {
-  const playerRef = useRef<HTMLDivElement>(null);
-  const playerInstance = useRef<any>(null);
-  const scriptStatus = useRef('idle'); // 'idle' | 'loading' | 'loaded'
-  const [isPlayerReady, setIsPlayerReady] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const webtorrentClient = useRef<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [status, setStatus] = useState("Loading WebTorrent...");
 
   useEffect(() => {
-    const scriptId = 'player-sdk-js-script';
-    const scriptSrc = 'https://cdn.jsdelivr.net/npm/player-sdk-js@1.0.9/dist/player-sdk.min.js';
+    const scriptId = 'webtorrent-sdk-script';
+    const scriptSrc = 'https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js';
+    let client: any = null;
 
     const initializePlayer = () => {
-      if (!playerRef.current || playerInstance.current) {
-        return;
-      }
-      
-      console.log('Initializing player-sdk-js...');
-      setIsPlayerReady(false);
+      if (!window.WebTorrent || !videoRef.current) return;
 
-      try {
-        playerInstance.current = new window.Player({
-          selector: `#${playerRef.current.id}`,
-          source: magnetUri,
-          autoPlay: true,
-          title: title,
-          logLevel: 'debug'
-        });
-        playerInstance.current.on('ready', () => {
-          console.log('Player is ready.');
-          setIsPlayerReady(true);
-        });
-        playerInstance.current.on('error', (err: any) => {
-            console.error('Player SDK Error:', err);
-        });
-      } catch (error) {
-         console.error("Failed to initialize player-sdk-js:", error);
-      }
+      console.log('WebTorrent SDK loaded, initializing client.');
+      setStatus('Initializing Torrent Client...');
+      client = new window.WebTorrent();
+      webtorrentClient.current = client;
+
+      client.on('error', (err: any) => {
+        console.error('WebTorrent Client Error:', err);
+        setStatus(`Error: ${err.message}`);
+        setIsLoading(false);
+      });
+      
+      setStatus('Fetching torrent metadata...');
+      client.add(magnetUri, (torrent: any) => {
+        console.log('Torrent metadata received.');
+        setStatus('Starting stream...');
+        const file = torrent.files.find((f: any) => f.name.endsWith('.mp4'));
+        
+        if (file && videoRef.current) {
+          console.log('Appending video file to player.');
+          file.renderTo(videoRef.current, { autoplay: true });
+          setIsLoading(false);
+          setStatus('');
+        } else {
+          console.warn('No .mp4 file found in torrent.');
+          setStatus('No compatible video file found in torrent.');
+          setIsLoading(false);
+        }
+      });
     };
     
-    // If script is loaded, just initialize
-    if (scriptStatus.current === 'loaded' && window.Player) {
-      initializePlayer();
-    } 
-    // If script is not loaded, load it
-    else if (scriptStatus.current === 'idle') {
-      scriptStatus.current = 'loading';
+    // Check if script already exists
+    if (!document.getElementById(scriptId)) {
       const script = document.createElement('script');
       script.id = scriptId;
       script.src = scriptSrc;
       script.async = true;
-      script.onload = () => {
-        console.log("Player SDK script loaded successfully.");
-        scriptStatus.current = 'loaded';
-        initializePlayer();
-      };
+      script.onload = initializePlayer;
       script.onerror = () => {
-        console.error("Failed to load player-sdk-js script.");
-        scriptStatus.current = 'idle'; // Reset on error
+          console.error("Failed to load WebTorrent script.");
+          setStatus("Failed to load required player script.");
+          setIsLoading(false);
       }
       document.body.appendChild(script);
+    } else {
+      initializePlayer();
     }
     
     return () => {
-      if (playerInstance.current) {
-        console.log('Destroying player-sdk-js instance.');
-        try {
-            playerInstance.current.destroy();
-        } catch (e) {
-            console.warn("Could not destroy player instance:", e);
-        }
-        playerInstance.current = null;
+      console.log('Cleaning up WebTorrent client.');
+      if (client) {
+          try {
+              client.destroy();
+          } catch(e) {
+              console.warn("Could not destroy WebTorrent client:", e);
+          }
       }
     };
-  }, [magnetUri, title]);
+  }, [magnetUri]);
 
   return (
     <div className="w-full flex flex-col gap-4">
       <div 
-        id="video-player-container" 
-        ref={playerRef} 
         className="w-full aspect-video bg-black rounded-lg relative overflow-hidden group"
       >
-        {!isPlayerReady && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 text-white">
+        <video ref={videoRef} className="w-full h-full" controls />
+        {isLoading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-70 text-white pointer-events-none">
                 <Loader2 className="h-12 w-12 animate-spin mb-4" />
-                <p className="text-lg">Preparing player...</p>
-                <p className="text-sm text-muted-foreground">This may take a moment</p>
+                <p className="text-lg font-semibold">Preparing Video</p>
+                <p className="text-sm text-muted-foreground">{status}</p>
             </div>
         )}
       </div>
@@ -118,3 +116,4 @@ export function TorrentPlayer({ magnetUri, title, onBack }: TorrentPlayerProps) 
     </div>
   );
 }
+
