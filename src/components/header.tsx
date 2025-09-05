@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { Clapperboard, Search, Link as LinkIcon, Play } from "lucide-react";
+import { Clapperboard, Search } from "lucide-react";
 import { Input } from "./ui/input";
 import {
   Select,
@@ -11,30 +11,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Button } from "./ui/button";
 
 interface HeaderProps {
   onSearch: (query: string, mediaType: 'movie' | 'tv') => void;
   onPlayMagnet: (magnetLink: string) => void;
 }
 
-export function Header({ onSearch, onPlayMagnet }: HeaderProps) {
+export function Header({ onSearch }: HeaderProps) {
   const [query, setQuery] = useState("");
   const [mediaType, setMediaType] = useState<'movie' | 'tv'>('movie');
-  const [magnetLink, setMagnetLink] = useState("");
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if(query) {
       onSearch(query, mediaType);
-    }
-  };
-
-  const handleMagnetPlay = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (magnetLink) {
-        onPlayMagnet(magnetLink);
-        setMagnetLink("");
     }
   };
 
@@ -68,22 +58,6 @@ export function Header({ onSearch, onPlayMagnet }: HeaderProps) {
                 <SelectItem value="tv">TV Shows</SelectItem>
                 </SelectContent>
             </Select>
-            </form>
-             <form onSubmit={handleMagnetPlay} className="flex-grow max-w-sm flex gap-2">
-                <div className="relative flex-grow">
-                    <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                    type="text"
-                    placeholder="Paste magnet link..."
-                    className="pl-10 w-full"
-                    value={magnetLink}
-                    onChange={(e) => setMagnetLink(e.target.value)}
-                    />
-                </div>
-                <Button type="submit" variant="secondary">
-                    <Play className="mr-2 h-4 w-4" />
-                    Play
-                </Button>
             </form>
         </div>
       </div>

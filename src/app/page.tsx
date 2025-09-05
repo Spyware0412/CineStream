@@ -33,7 +33,6 @@ export default function Home() {
   const [activeSearch, setActiveSearch] = useState("Latest from Hollywood");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [directStreamInfo, setDirectStreamInfo] = useState<{hash: string, fileIndex: number, name: string} | null>(null);
   const { toast } = useToast();
 
   const currentFetchFunction = useRef<FetchFunction | null>(null);
@@ -117,27 +116,9 @@ export default function Home() {
     );
   }
   
-  const handlePlayMagnet = (magnetLink: string) => {
-    const hashMatch = magnetLink.match(/btih:([a-fA-F0-9]{40})/);
-    const dnMatch = magnetLink.match(/dn=([^&]+)/);
-    const name = dnMatch ? decodeURIComponent(dnMatch[1]).replace(/\+/g, ' ') : 'Direct Stream';
-    
-    if (hashMatch) {
-      setDirectStreamInfo({ hash: hashMatch[1], fileIndex: 0, name });
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Invalid Magnet Link",
-        description: "Could not parse the info hash from the provided link.",
-      });
-    }
-  };
-
   const handleLoadMore = useCallback(() => {
     if (currentFetchFunction.current && currentPage < totalPages && !isLoadingMore) {
         const nextPage = currentPage + 1;
-        // The mediaType is not stored, which is a flaw. Assuming 'movie' for now.
-        // A better implementation would store the mediaType along with the fetch function.
         const mediaType = activeSearch.includes("TV") ? 'tv' : 'movie';
         handleFetch(currentFetchFunction.current(nextPage), mediaType, true);
     }
@@ -145,7 +126,6 @@ export default function Home() {
 
   useEffect(() => {
     const handleScroll = () => {
-      // Check if user is near the bottom of the page
       if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500 && !isLoading && !isLoadingMore) {
         handleLoadMore();
       }
@@ -166,7 +146,7 @@ export default function Home() {
         onFetchByGenre={fetchByGenre}
       />
       <div className="flex-1 flex flex-col">
-        <Header onSearch={handleSearch} onPlayMagnet={handlePlayMagnet} />
+        <Header onSearch={handleSearch} onPlayMagnet={() => {}} />
         <main className="flex-grow p-4 md:p-6 lg:p-8">
             <TmdbApiChecker />
             <h1 className="text-3xl font-bold mb-6">{activeSearch}</h1>
@@ -177,17 +157,6 @@ export default function Home() {
             />
         </main>
       </div>
-      {directStreamInfo && (
-        <MovieDetailsModal
-            isOpen={!!directStreamInfo}
-            onOpenChange={(isOpen) => {
-                if (!isOpen) {
-                    setDirectStreamInfo(null);
-                }
-            }}
-            directStreamInfo={directStreamInfo}
-        />
-      )}
     </div>
   );
 }

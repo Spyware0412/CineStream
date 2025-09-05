@@ -3,9 +3,6 @@
 
 import { suggestAlternativeResolutions } from "@/ai/flows/suggest-alternative-resolutions";
 import type { SuggestAlternativeResolutionsOutput } from "@/ai/flows/suggest-alternative-resolutions";
-import { fetchYtsMovieLinks } from "@/lib/yts";
-import type { FetchYtsMovieLinksOutput } from "@/lib/yts";
-import type { Movie } from "@/types";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_TOKEN = process.env.TMDB_ACCESS_TOKEN!;
@@ -87,19 +84,5 @@ export async function getAiSuggestions(
   } catch (error) {
     console.error("AI suggestion error:", error);
     throw new Error("Failed to get AI suggestions. Please try again later.");
-  }
-}
-
-export async function getMovieLinksAction(
-  item: Movie,
-): Promise<FetchYtsMovieLinksOutput> {
-  try {
-    return await fetchYtsMovieLinks({ 
-      title: item.title,
-      year: item.year
-    });
-  } catch (error) {
-    console.error("Movie links fetch error:", error);
-    throw new Error("Failed to get movie links. Please try again later.");
   }
 }

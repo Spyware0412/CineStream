@@ -8,9 +8,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "./ui/button";
-import { Clapperboard, Tv, Film, Globe, Users } from "lucide-react";
-import Link from "next/link";
-
+import { Tv, Film, Globe } from "lucide-react";
 
 const movieGenres = [
   { "id": 28, "name": "Action" },
@@ -65,20 +63,6 @@ export function AppSidebar({ onFetchLatest, onFetchByGenre }: AppSidebarProps) {
         
         <div className="space-y-4">
             <Accordion type="multiple" defaultValue={['discover', 'movies', 'tv']} className="w-full">
-                 <AccordionItem value="party">
-                    <AccordionTrigger className="text-base">
-                        <div className="flex items-center gap-2">
-                            <Users className="w-5 h-5"/> Watch Party
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pt-2">
-                         <div className="flex flex-col items-start gap-2 pl-2">
-                           <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary" asChild>
-                                <Link href="/party">Join or Create Party</Link>
-                           </Button>
-                        </div>
-                    </AccordionContent>
-                </AccordionItem>
                 <AccordionItem value="discover">
                     <AccordionTrigger className="text-base">
                         <div className="flex items-center gap-2">
