@@ -4,7 +4,6 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Star, Calendar, Clapperboard, Users, Tv, PlayCircle, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 import type { MediaItem } from "@/types";
 import {
@@ -49,11 +48,10 @@ export function MovieDetailsModal({
 }: MovieDetailsModalProps) {
   const [item, setItem] = useState<MediaItem | undefined>(initialItem);
   const [isFetchingDetails, setIsFetchingDetails] = useState(true);
-  const [links, setLinks] = useState<{ quality: string; magnet: string }[]>([]);
+  const [links, setLinks] = useState<{ quality: string; type: string; magnet: string; size: string; }[]>([]);
   const [isFetchingLinks, setIsFetchingLinks] = useState(false);
   const [selectedMagnet, setSelectedMagnet] = useState<string | null>(null);
   const { toast } = useToast();
-  const router = useRouter();
 
   useEffect(() => {
     if (isOpen && initialItem) {
@@ -84,7 +82,7 @@ export function MovieDetailsModal({
             try {
                 if (initialItem.media_type === 'movie') {
                     const linkData = await getMovieLinksAction(initialItem.id);
-                    setLinks(linkData.torrents || []);
+                    setLinks(linkData || []);
                 }
             } catch (error) {
                 toast({
@@ -205,9 +203,10 @@ export function MovieDetailsModal({
                     {!isFetchingLinks && item.media_type === 'tv' && <p className="text-sm text-muted-foreground">Streaming links are not available for TV shows.</p>}
                     <div className="flex flex-wrap gap-2">
                         {links.map(link => (
-                            <Button key={link.quality} onClick={() => setSelectedMagnet(link.magnet)} variant="outline">
+                            <Button key={link.magnet} onClick={() => setSelectedMagnet(link.magnet)} variant="outline">
                                 <PlayCircle className="mr-2 h-4 w-4" />
-                                Play {link.quality}
+                                {`${link.quality} ${link.type}`}
+                                <Badge variant="secondary" className="ml-2">{link.size}</Badge>
                             </Button>
                         ))}
                     </div>
