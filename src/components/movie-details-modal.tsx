@@ -133,7 +133,7 @@ export function MovieDetailsModal({
   const renderDetails = () => {
     if (!item) return null;
     const playerUrl = selectedMagnet 
-        ? `https://4000-firebase-web-torrent-1757087706863.cluster-nle52mxuvfhlkrzyrq6g2cwb52.cloudworkstations.dev/api/stream?magnet=${encodeURIComponent(selectedMagnet)}`
+        ? `https://4000-firebase-web-torrent-1757087706863.cluster-nle52mxuvfhlkrzyrq6g2cwb52.cloudworkstations.dev/stream?magnet=${encodeURIComponent(selectedMagnet)}`
         : '';
     return (
        <div className="grid md:grid-cols-3 gap-0 md:gap-6 overflow-y-auto max-h-[80vh]">
