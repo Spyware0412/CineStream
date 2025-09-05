@@ -4,9 +4,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Clapperboard, Wifi, Users, ArrowDown, ArrowUp } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Clapperboard, Wifi, Users, ArrowDown, ArrowUp, AlertTriangle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Separator } from './ui/separator';
+import { cn } from '@/lib/utils';
 
 interface VideoPlayerProps {
   magnetUri: string;
@@ -20,13 +20,16 @@ interface TorrentStats {
     peers: number;
 }
 
+type PlayerStatus = "connecting" | "buffering" | "playing" | "paused" | "error";
+
 export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [playerStatus, setPlayerStatus] = useState<PlayerStatus>("connecting");
+  const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -93,8 +96,14 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
     const video = videoRef.current;
     if (!video) return;
 
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
+    const handlePlay = () => {
+        setIsPlaying(true);
+        setPlayerStatus("playing");
+    };
+    const handlePause = () => {
+        setIsPlaying(false);
+        setPlayerStatus("paused");
+    };
     const handleTimeUpdate = () => {
         if (video.duration) {
             setProgress((video.currentTime / video.duration) * 100);
@@ -108,12 +117,22 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
         setVolume(video.volume);
         setIsMuted(video.muted);
     };
+    const handleWaiting = () => setPlayerStatus("buffering");
+    const handlePlaying = () => setPlayerStatus("playing");
+    const handleError = () => {
+        setPlayerStatus("error");
+        console.error("Video player error:", video.error);
+    }
 
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('volumechange', handleVolumeChange);
+    video.addEventListener('waiting', handleWaiting);
+    video.addEventListener('playing', handlePlaying);
+    video.addEventListener('error', handleError);
+
 
     return () => {
       video.removeEventListener('play', handlePlay);
@@ -121,6 +140,10 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('volumechange', handleVolumeChange);
+      video.removeEventListener('waiting', handleWaiting);
+      video.removeEventListener('playing', handlePlaying);
+      video.removeEventListener('error', handleError);
+
       if (controlsTimeoutRef.current) {
           clearTimeout(controlsTimeoutRef.current);
       }
@@ -135,7 +158,11 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
   const togglePlayPause = useCallback(() => {
     const video = videoRef.current;
     if (video) {
-      video.paused ? video.play() : video.pause();
+      if (video.paused) {
+          video.play();
+      } else {
+          video.pause();
+      }
     }
   }, []);
   
@@ -195,12 +222,39 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
   };
 
   const formatSpeed = (bytesPerSecond: number) => {
+    if (!isFinite(bytesPerSecond) || bytesPerSecond < 0) return '0 B/s';
     if (bytesPerSecond < 1024) return `${bytesPerSecond.toFixed(0)} B/s`;
     const kBps = bytesPerSecond / 1024;
     if (kBps < 1024) return `${kBps.toFixed(1)} KB/s`;
     const mBps = kBps / 1024;
     return `${mBps.toFixed(2)} MB/s`;
   };
+  
+  const renderStatusOverlay = () => {
+      const showOverlay = playerStatus !== 'playing' && playerStatus !== 'paused';
+      if (!showOverlay) return null;
+
+      let icon = <Loader2 className="w-12 h-12 animate-spin" />;
+      let text = "Connecting...";
+
+      switch (playerStatus) {
+          case 'buffering':
+              text = "Buffering...";
+              break;
+          case 'error':
+              icon = <AlertTriangle className="w-12 h-12 text-destructive" />;
+              text = "Error: Failed to load video stream.";
+              break;
+      }
+
+      return (
+          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-4 text-white z-10 pointer-events-none">
+              {icon}
+              <p className="text-lg font-medium">{text}</p>
+          </div>
+      )
+  };
+
 
   return (
     <div className="w-full flex flex-col gap-4">
@@ -214,6 +268,8 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
             Your browser does not support the video tag.
         </video>
         
+        {renderStatusOverlay()}
+
         {showStats && (
             <div className="absolute top-4 right-4 z-20">
                 <Card className="bg-black/70 text-white border-white/20">
@@ -244,7 +300,11 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
             </div>
         )}
 
-        <div className={`absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+        <div className={cn(
+            "absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 transition-opacity duration-300",
+            showControls ? 'opacity-100' : 'opacity-0',
+            playerStatus === 'error' && 'opacity-0'
+        )}>
             <div className="absolute top-0 left-0 right-0 p-4 flex items-center">
                 <h3 className="text-white text-lg font-semibold truncate">{title}</h3>
             </div>
