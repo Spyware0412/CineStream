@@ -53,7 +53,7 @@ export function MovieDetailsModal({
   const [selectedMagnet, setSelectedMagnet] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const streamingServerUrl = process.env.NEXT_PUBLIC_STREAMING_SERVER_URL;
+  const streamingServerUrl = "https://4000-firebase-web-torrent-1757087706863.cluster-nle52mxuvfhlkrzyrq6g2cwb52.cloudworkstations.dev";
 
   useEffect(() => {
     if (isOpen && initialItem) {
