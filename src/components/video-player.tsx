@@ -4,7 +4,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Clapperboard } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Clapperboard, Wifi, Users, ArrowDown, ArrowUp } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Separator } from './ui/separator';
 
 interface VideoPlayerProps {
   magnetUri: string;
@@ -12,10 +14,17 @@ interface VideoPlayerProps {
   onBack: () => void;
 }
 
+interface TorrentStats {
+    downloadSpeed: number;
+    uploadSpeed: number;
+    peers: number;
+}
+
 export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(true);
   const [volume, setVolume] = useState(1);
@@ -24,11 +33,13 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
   const [duration, setDuration] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [stats, setStats] = useState<TorrentStats | null>(null);
+  const [showStats, setShowStats] = useState(false);
 
   const streamUrl = `/api/stream?magnet=${encodeURIComponent(magnetUri)}`;
 
   const hideControls = () => {
-    if (isPlaying) {
+    if (isPlaying && !showStats) {
       setShowControls(false);
     }
   };
@@ -46,6 +57,37 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
           setShowControls(false);
       }
   }
+
+  const fetchStats = useCallback(async () => {
+      try {
+          const response = await fetch(`/api/stream/stats?magnet=${encodeURIComponent(magnetUri)}`);
+          if(response.ok) {
+              const data: TorrentStats = await response.json();
+              setStats(data);
+          } else {
+              setStats(null);
+          }
+      } catch (error) {
+          console.error("Failed to fetch stats:", error);
+          setStats(null);
+      }
+  }, [magnetUri]);
+
+  useEffect(() => {
+      if(showStats) {
+          fetchStats(); // initial fetch
+          statsIntervalRef.current = setInterval(fetchStats, 3000); // fetch every 3 seconds
+      } else {
+          if (statsIntervalRef.current) {
+              clearInterval(statsIntervalRef.current);
+          }
+      }
+      return () => {
+          if (statsIntervalRef.current) {
+            clearInterval(statsIntervalRef.current);
+          }
+      }
+  }, [showStats, fetchStats]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -87,6 +129,7 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
   
   useEffect(() => {
     handleMouseMove();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying]);
 
   const togglePlayPause = useCallback(() => {
@@ -151,6 +194,14 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
+  const formatSpeed = (bytesPerSecond: number) => {
+    if (bytesPerSecond < 1024) return `${bytesPerSecond.toFixed(0)} B/s`;
+    const kBps = bytesPerSecond / 1024;
+    if (kBps < 1024) return `${kBps.toFixed(1)} KB/s`;
+    const mBps = kBps / 1024;
+    return `${mBps.toFixed(2)} MB/s`;
+  };
+
   return (
     <div className="w-full flex flex-col gap-4">
       <div 
@@ -163,9 +214,41 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
             Your browser does not support the video tag.
         </video>
         
+        {showStats && (
+            <div className="absolute top-4 right-4 z-20">
+                <Card className="bg-black/70 text-white border-white/20">
+                    <CardHeader className='p-4'>
+                        <CardTitle className='text-lg'>Live Stats</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0 text-sm space-y-2">
+                        {stats ? (
+                           <>
+                             <div className="flex items-center gap-2">
+                                <ArrowDown className="w-4 h-4 text-green-400" />
+                                <span>Download: {formatSpeed(stats.downloadSpeed)}</span>
+                             </div>
+                             <div className="flex items-center gap-2">
+                                <ArrowUp className="w-4 h-4 text-orange-400" />
+                                <span>Upload: {formatSpeed(stats.uploadSpeed)}</span>
+                             </div>
+                             <div className="flex items-center gap-2">
+                                <Users className="w-4 h-4 text-blue-400" />
+                                <span>Peers: {stats.peers}</span>
+                             </div>
+                           </>
+                        ) : (
+                            <p>Loading stats...</p>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+        )}
+
         <div className={`absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="absolute top-0 left-0 right-0 p-4 flex items-center">
+                <h3 className="text-white text-lg font-semibold truncate">{title}</h3>
+            </div>
             <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3">
-                {/* Progress Bar */}
                 <Slider
                     value={[progress]}
                     onValueChange={handleSeek}
@@ -174,7 +257,6 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
                     className="w-full h-2 cursor-pointer"
                 />
 
-                {/* Controls */}
                 <div className="flex justify-between items-center text-white">
                     <div className="flex items-center gap-4">
                         <Button onClick={togglePlayPause} variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
@@ -196,17 +278,20 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
                             <span>{formatTime(videoRef.current?.currentTime ?? 0)}</span> / <span>{formatTime(duration)}</span>
                         </div>
                     </div>
-                    <Button onClick={toggleFullscreen} variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
-                        {isFullscreen ? <Minimize className="h-6 w-6" /> : <Maximize className="h-6 w-6" />}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button onClick={() => setShowStats(!showStats)} variant={showStats ? "secondary" : "ghost"} size="icon" className="text-white hover:bg-white/20 hover:text-white">
+                           <Wifi className="h-6 w-6" />
+                        </Button>
+                        <Button onClick={toggleFullscreen} variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
+                            {isFullscreen ? <Minimize className="h-6 w-6" /> : <Maximize className="h-6 w-6" />}
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>
       </div>
       <div className="flex justify-between items-center px-2">
-        <div>
-          <h2 className="text-xl font-bold">{title}</h2>
-        </div>
+        <div />
         <Button onClick={onBack} variant="outline">
           <Clapperboard className="mr-2 h-4 w-4" />
           Back to details

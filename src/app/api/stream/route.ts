@@ -9,7 +9,7 @@ const torrentsMap = new Map<string, Torrent>();
 
 // Handle potential client errors
 client.on('error', (err) => {
-  console.error('WebTorrent client error:', err);
+  console.error('[WebTorrent] Client error:', err);
 });
 
 
@@ -26,10 +26,11 @@ export async function GET(req: NextRequest) {
     const file = torrent.files.find(f => f.name.endsWith('.mp4') || f.name.endsWith('.mkv'));
 
     if (!file) {
-      // If no file found after torrent is ready, it's a real issue.
-      console.error(`No video file found in torrent: ${torrent.infoHash}`);
+      console.error(`[WebTorrent] No video file found in torrent: ${torrent.infoHash}`);
       return new Response('No video file found in torrent', { status: 404 });
     }
+    
+    console.log(`[WebTorrent] Streaming file: ${file.name} for torrent: ${torrent.infoHash}`);
 
     const total = file.length;
     const range = req.headers.get('range');
@@ -47,7 +48,6 @@ export async function GET(req: NextRequest) {
 
     const stream = file.createReadStream({ start, end });
     
-    // Convert Node.js stream to a Web Stream
     const webStream = new ReadableStream({
       start(controller) {
         stream.on('data', (chunk) => {
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
           controller.close();
         });
         stream.on('error', (err) => {
-          console.error('Stream error:', err);
+          console.error('[WebTorrent] Stream error:', err);
           controller.error(err);
         });
       },
@@ -80,50 +80,60 @@ export async function GET(req: NextRequest) {
     return new Response(webStream, { status, headers });
 
   } catch (error) {
-    console.error('Error handling torrent:', error);
+    console.error('[WebTorrent] Error handling torrent stream:', error);
     return new Response(error instanceof Error ? error.message : 'Failed to stream torrent', { status: 500 });
   }
 }
 
-function getTorrent(magnetUri: string): Promise<Torrent> {
+export function getTorrent(magnetUri: string): Promise<Torrent> {
   return new Promise((resolve, reject) => {
     // If torrent is already being handled, resolve immediately if ready
     if (torrentsMap.has(magnetUri)) {
       const existingTorrent = torrentsMap.get(magnetUri)!;
+      console.log(`[WebTorrent] Found existing torrent: ${existingTorrent.infoHash}`);
       if (existingTorrent.ready) {
         return resolve(existingTorrent);
       }
       // If not ready, wait for it
       existingTorrent.once('ready', () => resolve(existingTorrent));
-      existingTorrent.once('error', reject);
+      existingTorrent.once('error', (err) => {
+        console.error(`[WebTorrent] Error on existing torrent: ${magnetUri}`, err);
+        reject(err);
+      });
       return;
     }
 
-    console.log(`Adding new torrent: ${magnetUri}`);
-    // The main fix is here: we use .once() listeners to resolve/reject the promise.
+    console.log(`[WebTorrent] Adding new torrent: ${magnetUri}`);
+    
     const torrent = client.add(magnetUri, {
-      // Setting a path can sometimes help in environments with restricted FS
       path: '/tmp/webtorrent/' 
     });
     
     torrentsMap.set(magnetUri, torrent);
 
     torrent.once('ready', () => {
-      console.log(`Torrent ready: ${torrent.infoHash}`);
+      console.log(`[WebTorrent] Torrent ready: ${torrent.infoHash}`);
+      console.log(`[WebTorrent] Files in torrent:`, torrent.files.map(f => f.name));
       resolve(torrent);
     });
 
     torrent.once('error', (err) => {
-      console.error(`Torrent error for ${magnetUri}:`, err);
+      console.error(`[WebTorrent] Error adding new torrent ${magnetUri}:`, err);
       torrentsMap.delete(magnetUri); // Clean up on error
       reject(err);
     });
+    
+    torrent.on('download', (bytes) => {
+        console.log(`[WebTorrent Console] ${torrent.infoHash.substring(0, 8)} - Progress: ${(torrent.progress * 100).toFixed(1)}% | Down: ${(client.downloadSpeed / 1024 / 1024).toFixed(2)} MB/s | Up: ${(client.uploadSpeed / 1024 / 1024).toFixed(2)} MB/s | Peers: ${torrent.numPeers}`);
+    });
 
-    // Optional: clean up map when torrent is done to save memory
     torrent.on('done', () => {
-      console.log(`Torrent finished downloading: ${torrent.infoHash}`);
-      // Consider if you want to keep it for seeding or remove it
-      // torrentsMap.delete(magnetUri); 
+      console.log(`[WebTorrent Console] ${torrent.infoHash.substring(0, 8)} - Torrent finished downloading.`);
     });
   });
+}
+
+// This function is for the new stats endpoint
+export function findTorrent(magnetUri: string): Torrent | undefined {
+    return torrentsMap.get(magnetUri);
 }
