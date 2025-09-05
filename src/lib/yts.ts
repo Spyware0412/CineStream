@@ -37,7 +37,7 @@ export async function getMovieLinks(tmdbId: string, tmdbToken: string) {
         const ytsRes = await fetch(`${YTS_API_BASE_URL}/list_movies.json?query_term=${imdbId}`);
         if (!ytsRes.ok) {
             console.error('Failed to fetch from YTS API');
-            return [];
+return [];
         }
         const ytsData = await ytsRes.json();
 

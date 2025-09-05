@@ -187,7 +187,40 @@ export function MovieDetailsModal({
                 )}
 
                 <Separator />
-                                
+                
+                {selectedMagnet && (
+                  <div className="mt-4">
+                    <video
+                      controls
+                      autoPlay
+                      src={`/api/stream?magnet=${encodeURIComponent(selectedMagnet)}`}
+                      className="w-full rounded-lg bg-black"
+                    />
+                  </div>
+                )}
+                
+                {item.media_type === 'movie' && (
+                  <div className="mt-4">
+                    <h3 className="text-xl font-semibold mb-3">Streaming Links</h3>
+                    {isFetchingLinks ? (
+                      <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                    ) : links.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {links.map((link) => (
+                          <Button key={link.magnet} onClick={() => setSelectedMagnet(link.magnet)} variant="outline">
+                            <PlayCircle className="mr-2 h-4 w-4" />
+                            {`${link.quality} ${link.type.toUpperCase()}`} ({link.size})
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">No streaming links found for this movie.</p>
+                    )}
+                  </div>
+                )}
+                
+                <Separator />
+
                 <AiResolutionSuggester movieTitle={item.title} />
               </>
           </div>
