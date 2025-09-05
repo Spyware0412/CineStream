@@ -53,7 +53,7 @@ export function MovieDetailsModal({
   const [selectedMagnet, setSelectedMagnet] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const streamingServerUrl = "https://4000-firebase-web-torrent-1757087706863.cluster-nle52mxuvfhlkrzyrq6g2cwb52.cloudworkstations.dev";
+  const streamingServerUrl = process.env.NEXT_PUBLIC_STREAMING_SERVER_URL;
 
   useEffect(() => {
     if (isOpen && initialItem) {
@@ -135,7 +135,7 @@ export function MovieDetailsModal({
   const renderDetails = () => {
     if (!item) return null;
     const playerUrl = selectedMagnet && streamingServerUrl
-        ? `${streamingServerUrl}/api/stream?magnet=${encodeURIComponent(selectedMagnet)}`
+        ? `${streamingServerUrl}?magnet=${encodeURIComponent(selectedMagnet)}`
         : '';
     return (
        <div className="grid md:grid-cols-3 gap-0 md:gap-6 overflow-y-auto max-h-[80vh]">
@@ -208,7 +208,7 @@ export function MovieDetailsModal({
                   <div className="mt-4">
                     <h3 className="text-xl font-semibold mb-3">Streaming Links</h3>
                     {!streamingServerUrl && (
-                      <p className="text-destructive text-sm mb-2">Streaming server URL is not configured.</p>
+                      <p className="text-destructive text-sm mb-2">Streaming server URL is not configured. Please set NEXT_PUBLIC_STREAMING_SERVER_URL in your environment variables.</p>
                     )}
                     {isFetchingLinks ? (
                       <Loader2 className="mr-2 h-6 w-6 animate-spin" />
@@ -249,5 +249,3 @@ export function MovieDetailsModal({
     </Dialog>
   );
 }
-
-    
