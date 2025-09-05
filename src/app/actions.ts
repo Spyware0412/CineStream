@@ -89,5 +89,5 @@ export async function getAiSuggestions(
 }
 
 export async function getMovieLinksAction(tmdbId: string) {
-    return getMovieLinks(tmdbId);
+    return getMovieLinks(tmdbId, TMDB_TOKEN);
 }
