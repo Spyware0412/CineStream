@@ -85,13 +85,13 @@ export async function GET(req: NextRequest) {
 
 function getTorrent(magnetUri: string): Promise<Torrent> {
   return new Promise((resolve, reject) => {
-    // If torrent is already being handled, resolve immediately
+    // If torrent is already being handled, resolve immediately if ready
     if (torrentsMap.has(magnetUri)) {
       const existingTorrent = torrentsMap.get(magnetUri)!;
-      // Wait for metadata if not ready
-      if(existingTorrent.ready) {
+      if (existingTorrent.ready) {
         return resolve(existingTorrent);
       }
+      // If not ready, wait for it
       existingTorrent.on('ready', () => resolve(existingTorrent));
       existingTorrent.on('error', reject);
       return;
