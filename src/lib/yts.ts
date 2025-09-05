@@ -42,7 +42,7 @@ export async function getMovieLinks(tmdbId: string, tmdbToken: string) {
         }
         const ytsData = await ytsRes.json();
 
-        if (ytsData.data.movie_count === 0) {
+        if (ytsData.data.movie_count === 0 || !ytsData.data.movies) {
             return [];
         }
 
