@@ -53,6 +53,8 @@ export function MovieDetailsModal({
   const [selectedMagnet, setSelectedMagnet] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const streamingServerUrl = process.env.NEXT_PUBLIC_STREAMING_SERVER_URL;
+
   useEffect(() => {
     if (isOpen && initialItem) {
         setItem(initialItem);
@@ -132,8 +134,8 @@ export function MovieDetailsModal({
   
   const renderDetails = () => {
     if (!item) return null;
-    const playerUrl = selectedMagnet 
-        ? `https://4000-firebase-web-torrent-1757087706863.cluster-nle52mxuvfhlkrzyrq6g2cwb52.cloudworkstations.dev/stream?magnet=${encodeURIComponent(selectedMagnet)}`
+    const playerUrl = selectedMagnet && streamingServerUrl
+        ? `${streamingServerUrl}?magnet=${encodeURIComponent(selectedMagnet)}`
         : '';
     return (
        <div className="grid md:grid-cols-3 gap-0 md:gap-6 overflow-y-auto max-h-[80vh]">
@@ -191,7 +193,7 @@ export function MovieDetailsModal({
 
                 <Separator />
                 
-                {selectedMagnet && (
+                {playerUrl && (
                   <video
                     key={selectedMagnet}
                     id="player"
@@ -205,12 +207,20 @@ export function MovieDetailsModal({
                 {item.media_type === 'movie' && (
                   <div className="mt-4">
                     <h3 className="text-xl font-semibold mb-3">Streaming Links</h3>
+                    {!streamingServerUrl && (
+                      <p className="text-destructive text-sm mb-2">Streaming server URL is not configured.</p>
+                    )}
                     {isFetchingLinks ? (
                       <Loader2 className="mr-2 h-6 w-6 animate-spin" />
                     ) : links.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {links.map((link) => (
-                          <Button key={link.magnet} onClick={() => setSelectedMagnet(link.magnet)} variant="outline">
+                          <Button 
+                            key={link.magnet} 
+                            onClick={() => setSelectedMagnet(link.magnet)} 
+                            variant="outline"
+                            disabled={!streamingServerUrl}
+                          >
                             <PlayCircle className="mr-2 h-4 w-4" />
                             {`${link.quality} ${link.type.toUpperCase()}`} ({link.size})
                           </Button>
