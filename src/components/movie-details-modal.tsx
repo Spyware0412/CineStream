@@ -113,12 +113,12 @@ export function MovieDetailsModal({
   const handleFetchMovieLinks = async () => {
     if (!initialItem || initialItem.media_type !== 'movie') return;
     setIsFetchingMovieLinks(true);
+    setMovieLinks([]);
     try {
         const linkData = await getMovieLinksAction(initialItem.id);
         setMovieLinks(linkData || []);
         if ((linkData || []).length === 0) {
              toast({
-                variant: "destructive",
                 title: "No links found",
                 description: "Could not find streaming links for this movie.",
             });
@@ -160,12 +160,13 @@ export function MovieDetailsModal({
 
     const episodeId = `${selectedSeason}-${episode.episode_number}`;
     setIsFetchingEpisodeLinks(prev => ({ ...prev, [episodeId]: true }));
+    setEpisodeLinks(prev => ({...prev, [episodeId]: []}));
+
     try {
       const links = await getTvEpisodeLinksAction(item.id, selectedSeason, episode.episode_number);
       setEpisodeLinks(prev => ({...prev, [episodeId]: links}));
        if (links.length === 0) {
         toast({
-          variant: "destructive",
           title: "No links found",
           description: `Could not find any streaming links for ${item.title} S${selectedSeason}E${episode.episode_number}. This could be a new episode or a rare show.`,
         });
@@ -280,7 +281,7 @@ export function MovieDetailsModal({
                                       disabled={!streamingServerUrl}
                                     >
                                         <Button size="sm">
-                                            {isFetchingEpisodeLinks[episodeId] ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlayCircle className="mr-2 h-4 w-4" />}
+                                            <PlayCircle className="mr-2 h-4 w-4" />
                                             Play
                                         </Button>
                                     </LinkPopover>
@@ -384,8 +385,8 @@ export function MovieDetailsModal({
                         disabled={!streamingServerUrl || isFetchingDetails}
                     >
                        <Button disabled={!streamingServerUrl || isFetchingMovieLinks}>
-                         {isFetchingMovieLinks ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlayCircle className="mr-2 h-4 w-4" />}
-                         {isFetchingMovieLinks ? "Finding Links..." : "Play Movie"}
+                         <PlayCircle className="mr-2 h-4 w-4" />
+                         Play Movie
                        </Button>
                     </LinkPopover>
 

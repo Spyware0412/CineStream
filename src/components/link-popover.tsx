@@ -1,6 +1,6 @@
 
 "use client";
-
+import * as React from "react";
 import {
   Popover,
   PopoverContent,
@@ -66,19 +66,23 @@ export function LinkPopover({
             </p>
           </div>
           <div className="grid gap-2">
-            {links.length > 0 ? (
+            {isLoading ? (
+                <div className="flex items-center justify-center p-4">
+                    <Loader2 className="h-6 w-6 animate-spin"/>
+                </div>
+            ) : links.length > 0 ? (
               links.map((link) => (
                 <Button
                   key={link.magnet}
                   variant="outline"
                   size="sm"
                   onClick={() => handleLinkClick(link.magnet)}
-                  className="justify-start"
+                  className="justify-start h-auto"
                 >
-                  <PlayCircle className="mr-2 h-4 w-4" />
-                  <div className="flex flex-col items-start">
+                  <PlayCircle className="mr-2 h-4 w-4 flex-shrink-0" />
+                  <div className="flex flex-col items-start text-left">
                      <span className="font-semibold">{`${link.quality} ${link.type.toUpperCase()}`}</span>
-                     <span className="text-xs text-muted-foreground">{`Size: ${link.size}`}</span>
+                     <span className="text-xs text-muted-foreground whitespace-normal">{`Size: ${link.size}`}</span>
                   </div>
                 </Button>
               ))
