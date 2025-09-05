@@ -155,7 +155,7 @@ export function MovieDetailsModal({
     const episodeId = `${selectedSeason}-${episode.episode_number}`;
     setIsFetchingEpisodeLinks(prev => ({ ...prev, [episodeId]: true }));
     try {
-      const links = await getTvEpisodeLinksAction(item.id, item.title, selectedSeason, episode.episode_number);
+      const links = await getTvEpisodeLinksAction(item.id, selectedSeason, episode.episode_number);
       setEpisodeLinks(prev => ({...prev, [episodeId]: links}));
        if (links.length === 0) {
         toast({
