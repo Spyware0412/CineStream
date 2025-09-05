@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AiResolutionSuggester } from "./ai-resolution-suggester";
@@ -221,6 +222,7 @@ export function MovieDetailsModal({
               <>
                 <DialogHeader>
                   <DialogTitle className="text-3xl font-bold">{item.title}</DialogTitle>
+                  <DialogDescription className="sr-only">Details for the movie {item.title}</DialogDescription>
                   {isFetchingDetails ? (
                     <Skeleton className="h-6 w-24 mt-2"/>
                   ) : (
@@ -314,3 +316,5 @@ export function MovieDetailsModal({
     </Dialog>
   );
 }
+
+    

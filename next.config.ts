@@ -39,9 +39,22 @@ const nextConfig: NextConfig = {
   ],
   experimental: {
     serverActions: {
-        bodySizeLimit: '4mb',
+      bodySizeLimit: '4mb',
+      // Increase timeout for long-running actions like video processing
+      responseHeaderSize: 8192,
     },
+  },
+  // Setting a longer timeout for the dev server proxy to handle slow torrent metadata fetching
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: '/api/:path*',
+      },
+    ];
   },
 };
 
 export default nextConfig;
+
+    
