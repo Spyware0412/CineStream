@@ -37,7 +37,13 @@ const nextConfig: NextConfig = {
     'https://*.cloudworkstations.dev',
     'https://*.firebase.dev',
   ],
-  experimental: {},
+  experimental: {
+    serverActions: {
+        bodySizeLimit: '4mb',
+    },
+    // This is required for the torrent streaming API route to have a longer timeout
+    proxyTimeout: 120000, 
+  },
 };
 
 export default nextConfig;

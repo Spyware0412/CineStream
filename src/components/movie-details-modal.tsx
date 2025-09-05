@@ -6,7 +6,7 @@ import Image from "next/image";
 import { Download, Star, Calendar, Clapperboard, Users, Tv, Play, PartyPopper } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import type { Movie as MediaItem } from "@/types";
+import type { MediaItem } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,7 @@ import { Skeleton } from "./ui/skeleton";
 import { getMovieLinksAction, getMediaDetailsAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "./ui/badge";
-import { TorrentPlayer } from "./torrent-player";
+import { VideoPlayer } from "./video-player";
 
 interface MovieDetailsModalProps {
   item?: MediaItem;
@@ -182,7 +182,7 @@ export function MovieDetailsModal({
     return (
         <div className="p-6">
             <div className="w-full flex flex-col gap-4">
-                <TorrentPlayer magnetUri={playerInfo.magnetUri} title={playerInfo.title} onBack={handleBackToDetails} />
+                <VideoPlayer magnetUri={playerInfo.magnetUri} title={playerInfo.title} onBack={handleBackToDetails} />
             </div>
         </div>
     );
