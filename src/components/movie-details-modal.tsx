@@ -188,17 +188,16 @@ export function MovieDetailsModal({
 
                 <Separator />
                 
-                {selectedMagnet && (
-                  <div className="mt-4">
-                    <video
-                      id="player"
-                      controls
-                      autoPlay
-                      src={`https://4000-firebase-web-torrent-1757087706863.cluster-nle52mxuvfhlkrzyrq6g2cwb52.cloudworkstations.dev/api/stream?magnet=${encodeURIComponent(selectedMagnet)}`}
-                      className="w-full rounded-lg bg-black"
-                    />
-                  </div>
-                )}
+                {isOpen && selectedMagnet && (
+  <video
+    key={selectedMagnet}
+    id="player"
+    controls
+    autoPlay
+    src={`https://.../api/stream?magnet=${selectedMagnet}`}
+    className="w-full rounded-lg bg-black"
+  />
+)}
                 
                 {item.media_type === 'movie' && (
                   <div className="mt-4">

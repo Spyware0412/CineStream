@@ -11,7 +11,8 @@ async function getImdbId(tmdbId: string, tmdbToken: string): Promise<string | nu
             }
         });
         if (!response.ok) {
-            console.error("Failed to fetch movie details from TMDB to get IMDb ID");
+            const errorBody = await response.text();
+            console.error(`Failed to fetch movie details from TMDB to get IMDb ID. Status: ${response.status}, Body: ${errorBody}`);
             return null;
         }
         const data = await response.json();
@@ -37,7 +38,7 @@ export async function getMovieLinks(tmdbId: string, tmdbToken: string) {
         const ytsRes = await fetch(`${YTS_API_BASE_URL}/list_movies.json?query_term=${imdbId}`);
         if (!ytsRes.ok) {
             console.error('Failed to fetch from YTS API');
-return [];
+            return [];
         }
         const ytsData = await ytsRes.json();
 
