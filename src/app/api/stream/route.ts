@@ -1,4 +1,5 @@
 // app/api/stream/route.ts
+export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import WebTorrent, { Torrent } from 'webtorrent';
 import { Readable } from 'stream';
@@ -124,7 +125,7 @@ export async function GET(req: NextRequest) {
       headers.set('Accept-Ranges', 'bytes');
 
       const stream = nodeStreamToWeb(file.createReadStream());
-      return new NextResponse(stream as any, { status: 200, headers });
+      return new NextResponse(stream, { status: 200, headers });
     }
 
     // Partial content (Range request)
@@ -142,7 +143,7 @@ export async function GET(req: NextRequest) {
     headers.set('Content-Type', getContentType(file.name));
     headers.set('Connection', 'keep-alive');
 
-    return new NextResponse(stream as any, { status: 206, headers });
+    return new NextResponse(stream, { status: 206, headers });
 
   } catch (error) {
     console.error('Streaming error:', error);
