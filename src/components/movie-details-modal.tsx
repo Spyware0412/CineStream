@@ -22,6 +22,8 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Card, CardContent } from "./ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+
 
 interface MovieDetailsModalProps {
   item?: MediaItem;
@@ -210,8 +212,8 @@ export function MovieDetailsModal({
                 ) : episodes.length > 0 ? (
                     episodes.map(episode => (
                         <Card key={episode.id} className="p-0 overflow-hidden">
-                             <CardContent className="p-4 flex gap-4">
-                                <div className="relative w-32 h-20 flex-shrink-0 bg-muted rounded-md">
+                             <CardContent className="p-4 flex flex-col sm:flex-row gap-4">
+                                <div className="relative w-full sm:w-32 h-24 sm:h-20 flex-shrink-0 bg-muted rounded-md">
                                     {episode.still_path ? (
                                         <Image
                                             src={`https://image.tmdb.org/t/p/w300${episode.still_path}`}
@@ -228,7 +230,22 @@ export function MovieDetailsModal({
                                 <div className="flex-grow">
                                     <h4 className="font-semibold">{episode.episode_number}. {episode.name}</h4>
                                     <p className="text-xs text-muted-foreground mb-2">{episode.air_date}</p>
-                                    <p className="text-sm text-foreground/70 line-clamp-2">{episode.overview}</p>
+                                    <p className="text-sm text-foreground/70 line-clamp-2 mb-3">{episode.overview}</p>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          {/* The button is disabled, so we need to wrap it in a span for the tooltip to work */}
+                                          <span tabIndex={0}> 
+                                            <Button size="sm" disabled>
+                                              <PlayCircle className="mr-2 h-4 w-4" /> Play
+                                            </Button>
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Streaming for individual TV episodes is not yet supported.</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
                                 </div>
                             </CardContent>
                         </Card>
@@ -244,7 +261,7 @@ export function MovieDetailsModal({
   const renderDetails = () => {
     if (!item) return null;
     const playerUrl = selectedMagnet && streamingServerUrl
-        ? `${streamingServerUrl}/api/stream?magnet=${encodeURIComponent(selectedMagnet)}`
+        ? `${streamingServerUrl}?magnet=${encodeURIComponent(selectedMagnet)}`
         : '';
     return (
        <div className="grid md:grid-cols-3 gap-0 md:gap-6 overflow-y-auto max-h-[80vh]">
@@ -280,25 +297,25 @@ export function MovieDetailsModal({
                 </DialogHeader>
 
                  {isFetchingDetails ? (
-                  <div className="space-y-3 mt-4">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-4/5" />
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-base text-foreground/80">{item.plot}</p>
-                     {item.genre && (
-                        <div className="flex flex-wrap gap-2">
-                          {item.genre.split(', ').map(g => <Badge key={g} variant="outline">{g}</Badge>)}
-                        </div>
-                      )}
-                    <div className="space-y-3 mt-4">
-                      <DetailItem icon={Clapperboard} label={item.media_type === 'movie' ? "Director" : "Creator"} value={item.director} />
-                      <DetailItem icon={Users} label="Actors" value={item.actors} />
-                    </div>
-                  </>
-                )}
+                   <div className="space-y-3 mt-4">
+                     <Skeleton className="h-4 w-full" />
+                     <Skeleton className="h-4 w-full" />
+                     <Skeleton className="h-4 w-4/5" />
+                   </div>
+                 ) : (
+                   <>
+                     <p className="text-base text-foreground/80">{item.plot}</p>
+                      {item.genre && (
+                         <div className="flex flex-wrap gap-2">
+                           {item.genre.split(', ').map(g => <Badge key={g} variant="outline">{g}</Badge>)}
+                         </div>
+                       )}
+                     <div className="space-y-3 mt-4">
+                       <DetailItem icon={Clapperboard} label={item.media_type === 'movie' ? "Director" : "Creator"} value={item.director} />
+                       <DetailItem icon={Users} label="Actors" value={item.actors} />
+                     </div>
+                   </>
+                 )}
 
                 <Separator />
                 
@@ -360,3 +377,5 @@ export function MovieDetailsModal({
     </Dialog>
   );
 }
+
+    
