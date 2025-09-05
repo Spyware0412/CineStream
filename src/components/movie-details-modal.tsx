@@ -187,32 +187,6 @@ export function MovieDetailsModal({
                 )}
 
                 <Separator />
-                
-                {selectedMagnet && (
-                  <div className="mt-4">
-                      <video controls autoPlay className="w-full rounded-lg" src={`/api/stream?magnet=${encodeURIComponent(selectedMagnet)}`}>
-                          Your browser does not support the video tag.
-                      </video>
-                  </div>
-                )}
-                
-                <div className="space-y-3">
-                    <h3 className="text-xl font-semibold">Play Movie</h3>
-                    {isFetchingLinks && <div className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> <p>Searching for streams...</p></div>}
-                    {!isFetchingLinks && links.length === 0 && item.media_type === 'movie' && <p className="text-sm text-muted-foreground">No streaming links found.</p>}
-                    {!isFetchingLinks && item.media_type === 'tv' && <p className="text-sm text-muted-foreground">Streaming links are not available for TV shows.</p>}
-                    <div className="flex flex-wrap gap-2">
-                        {links.map(link => (
-                            <Button key={link.magnet} onClick={() => setSelectedMagnet(link.magnet)} variant="outline">
-                                <PlayCircle className="mr-2 h-4 w-4" />
-                                {`${link.quality} ${link.type}`}
-                                <Badge variant="secondary" className="ml-2">{link.size}</Badge>
-                            </Button>
-                        ))}
-                    </div>
-                </div>
-
-                <Separator />
                                 
                 <AiResolutionSuggester movieTitle={item.title} />
               </>
