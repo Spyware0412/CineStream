@@ -9,7 +9,7 @@ const torrentsMap = new Map<string, Torrent>();
 
 // Handle potential client errors
 client.on('error', (err) => {
-  console.error('[WebTorrent] Client error:', err);
+  console.error('[WebTorrent Console] Client error:', err);
 });
 
 
@@ -26,11 +26,11 @@ export async function GET(req: NextRequest) {
     const file = torrent.files.find(f => f.name.endsWith('.mp4') || f.name.endsWith('.mkv'));
 
     if (!file) {
-      console.error(`[WebTorrent] No video file found in torrent: ${torrent.infoHash}`);
+      console.error(`[WebTorrent Console] No video file found in torrent: ${torrent.infoHash}`);
       return new Response('No video file found in torrent', { status: 404 });
     }
     
-    console.log(`[WebTorrent] Streaming file: ${file.name} for torrent: ${torrent.infoHash}`);
+    console.log(`[WebTorrent Console] Streaming file: ${file.name} for torrent: ${torrent.infoHash}`);
 
     const total = file.length;
     const range = req.headers.get('range');
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
           controller.close();
         });
         stream.on('error', (err) => {
-          console.error('[WebTorrent] Stream error:', err);
+          console.error('[WebTorrent Console] Stream error:', err);
           controller.error(err);
         });
       },
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
     return new Response(webStream, { status, headers });
 
   } catch (error) {
-    console.error('[WebTorrent] Error handling torrent stream:', error);
+    console.error('[WebTorrent Console] Error handling torrent stream:', error);
     return new Response(error instanceof Error ? error.message : 'Failed to stream torrent', { status: 500 });
   }
 }
@@ -90,20 +90,25 @@ export function getTorrent(magnetUri: string): Promise<Torrent> {
     // If torrent is already being handled, resolve immediately if ready
     if (torrentsMap.has(magnetUri)) {
       const existingTorrent = torrentsMap.get(magnetUri)!;
-      console.log(`[WebTorrent] Found existing torrent: ${existingTorrent.infoHash}`);
+      console.log(`[WebTorrent Console] Found existing torrent instance: ${existingTorrent.infoHash}`);
       if (existingTorrent.ready) {
+        console.log(`[WebTorrent Console] Existing torrent is ready. Resolving.`);
         return resolve(existingTorrent);
       }
       // If not ready, wait for it
-      existingTorrent.once('ready', () => resolve(existingTorrent));
+      console.log(`[WebTorrent Console] Existing torrent not ready yet. Waiting for 'ready' event.`);
+      existingTorrent.once('ready', () => {
+        console.log(`[WebTorrent Console] Existing torrent is now ready: ${existingTorrent.infoHash}`);
+        resolve(existingTorrent)
+      });
       existingTorrent.once('error', (err) => {
-        console.error(`[WebTorrent] Error on existing torrent: ${magnetUri}`, err);
+        console.error(`[WebTorrent Console] Error on existing torrent: ${magnetUri}`, err);
         reject(err);
       });
       return;
     }
 
-    console.log(`[WebTorrent] Adding new torrent: ${magnetUri}`);
+    console.log(`[WebTorrent Console] Adding new torrent: ${magnetUri}`);
     
     const torrent = client.add(magnetUri, {
       path: '/tmp/webtorrent/' 
@@ -112,23 +117,32 @@ export function getTorrent(magnetUri: string): Promise<Torrent> {
     torrentsMap.set(magnetUri, torrent);
 
     torrent.once('ready', () => {
-      console.log(`[WebTorrent] Torrent ready: ${torrent.infoHash}`);
-      console.log(`[WebTorrent] Files in torrent:`, torrent.files.map(f => f.name));
+      console.log(`[WebTorrent Console] Torrent ready (metadata downloaded): ${torrent.infoHash}`);
+      console.log(`[WebTorrent Console] Files in torrent:`, torrent.files.map(f => f.name));
       resolve(torrent);
     });
 
     torrent.once('error', (err) => {
-      console.error(`[WebTorrent] Error adding new torrent ${magnetUri}:`, err);
+      console.error(`[WebTorrent Console] Error adding new torrent ${magnetUri}:`, err);
       torrentsMap.delete(magnetUri); // Clean up on error
       reject(err);
     });
     
     torrent.on('download', (bytes) => {
-        console.log(`[WebTorrent Console] ${torrent.infoHash.substring(0, 8)} - Progress: ${(torrent.progress * 100).toFixed(1)}% | Down: ${(client.downloadSpeed / 1024 / 1024).toFixed(2)} MB/s | Up: ${(client.uploadSpeed / 1024 / 1024).toFixed(2)} MB/s | Peers: ${torrent.numPeers}`);
+        const progress = (torrent.progress * 100).toFixed(1);
+        const downloadSpeed = (client.downloadSpeed / 1024 / 1024).toFixed(2);
+        const uploadSpeed = (client.uploadSpeed / 1024 / 1024).toFixed(2);
+        const downloaded = (torrent.downloaded / 1024 / 1024).toFixed(2);
+        const total = (torrent.length / 1024 / 1024).toFixed(2);
+
+        // Using process.stdout.write to create a single, updating line in the console
+        process.stdout.write(`[WebTorrent Console] ${torrent.infoHash.substring(0, 8)}: ${progress}% | ↓ ${downloadSpeed} MB/s | ↑ ${uploadSpeed} MB/s | Peers: ${torrent.numPeers} | Total: ${downloaded}/${total} MB\r`);
     });
 
     torrent.on('done', () => {
-      console.log(`[WebTorrent Console] ${torrent.infoHash.substring(0, 8)} - Torrent finished downloading.`);
+      // Add a newline after the progress bar is done
+      process.stdout.write('\n');
+      console.log(`[WebTorrent Console] Torrent finished downloading: ${torrent.infoHash}`);
     });
   });
 }
