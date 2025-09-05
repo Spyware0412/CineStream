@@ -29,6 +29,7 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
   const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>("connecting");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
@@ -103,6 +104,7 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
     const handlePause = () => {
         setIsPlaying(false);
         setPlayerStatus("paused");
+        
     };
     const handleTimeUpdate = () => {
         if (video.duration) {
@@ -121,7 +123,14 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
     const handlePlaying = () => setPlayerStatus("playing");
     const handleError = () => {
         setPlayerStatus("error");
-        console.error("Video player error:", video.error);
+        const error = video.error;
+        console.error("Video player error:", error);
+        
+        if (error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+            setErrorMessage("Failed to load video. This might be due to a browser extension (like an ad-blocker) blocking the request. Please try disabling it for this site.");
+        } else {
+            setErrorMessage(`An unexpected video error occurred. Code: ${error?.code}`);
+        }
     }
 
     video.addEventListener('play', handlePlay);
@@ -235,7 +244,7 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
       if (!showOverlay) return null;
 
       let icon = <Loader2 className="w-12 h-12 animate-spin" />;
-      let text = "Connecting...";
+      let text : React.ReactNode = "Connecting...";
 
       switch (playerStatus) {
           case 'buffering':
@@ -243,14 +252,19 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
               break;
           case 'error':
               icon = <AlertTriangle className="w-12 h-12 text-destructive" />;
-              text = "Error: Failed to load video stream.";
+              text = (
+                <div className='text-center max-w-md'>
+                    <p className='font-semibold mb-2'>Error Loading Video</p>
+                    <p className='text-sm'>{errorMessage || "The video stream could not be loaded."}</p>
+                </div>
+              );
               break;
       }
 
       return (
-          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-4 text-white z-10 pointer-events-none">
+          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-4 text-white z-10 pointer-events-none p-4">
               {icon}
-              <p className="text-lg font-medium">{text}</p>
+              <div className="text-lg font-medium">{text}</div>
           </div>
       )
   };
@@ -360,3 +374,5 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
     </div>
   );
 }
+
+    
