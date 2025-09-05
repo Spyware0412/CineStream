@@ -3,7 +3,9 @@
 
 import { suggestAlternativeResolutions } from "@/ai/flows/suggest-alternative-resolutions";
 import type { SuggestAlternativeResolutionsOutput } from "@/ai/flows/suggest-alternative-resolutions";
-import { getMovieLinks, getTvShowLinks, searchYts } from "@/lib/yts";
+import { getMovieLinks } from "@/lib/yts";
+import { getTorrentioLinks } from "@/lib/torrentio";
+import { getExternalIds } from "@/lib/tmdb";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_TOKEN = process.env.TMDB_ACCESS_TOKEN!;
@@ -120,19 +122,18 @@ export async function getMovieLinksAction(tmdbId: string) {
 }
 
 
-export async function getTvEpisodeLinksAction(tmdbId: string, showName: string, season: number, episode: number) {
-    const [tvShowTorrents, specificTorrents, seasonTorrents] = await Promise.all([
-        getTvShowLinks(tmdbId, TMDB_TOKEN),
-        searchYts(null, `${showName} S${season.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}`),
-        searchYts(null, `${showName} S${season.toString().padStart(2, '0')}`)
-    ]);
-
-    const allTorrents = [...tvShowTorrents, ...specificTorrents, ...seasonTorrents];
-    const uniqueTorrents = Array.from(new Map(allTorrents.map(t => [t.magnet, t])).values());
-
-    if (uniqueTorrents.length === 0) {
-        console.log(`No torrents found for TV Show: ${showName} (TMDB ID: ${tmdbId}) using multiple search strategies.`);
+export async function getTvEpisodeLinksAction(tmdbId: string, season: number, episode: number) {
+    const { imdb_id } = await getExternalIds(tmdbId, 'tv', TMDB_TOKEN);
+    if (!imdb_id) {
+        console.log(`No IMDb ID found for TV Show with TMDB ID: ${tmdbId}`);
+        return [];
     }
+    
+    const torrents = await getTorrentioLinks(imdb_id, season, episode);
 
-    return uniqueTorrents;
+    if (torrents.length === 0) {
+        console.log(`No torrents found from Torrentio for TV Show: ${imdb_id} S${season}E${episode}`);
+    }
+    
+    return torrents;
 }
