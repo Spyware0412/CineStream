@@ -191,9 +191,10 @@ export function MovieDetailsModal({
                 {selectedMagnet && (
                   <div className="mt-4">
                     <video
+                      id="player"
                       controls
                       autoPlay
-                      src={`/api/stream?magnet=${encodeURIComponent(selectedMagnet)}`}
+                      src={`https://4000-firebase-web-torrent-1757087706863.cluster-nle52mxuvfhlkrzyrq6g2cwb52.cloudworkstations.dev/api/stream?magnet=${encodeURIComponent(selectedMagnet)}`}
                       className="w-full rounded-lg bg-black"
                     />
                   </div>
