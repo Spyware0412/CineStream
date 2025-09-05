@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Download, Star, Calendar, Clapperboard, Users, Tv, Play, PartyPopper } from "lucide-react";
+import { Download, Star, Calendar, Clapperboard, Users, Tv, Play, PartyPopper, ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import type { MediaItem } from "@/types";
@@ -20,7 +20,6 @@ import { Skeleton } from "./ui/skeleton";
 import { getMovieLinksAction, getMediaDetailsAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "./ui/badge";
-import { VideoPlayer } from "./video-player";
 
 interface MovieDetailsModalProps {
   item?: MediaItem;
@@ -180,11 +179,27 @@ export function MovieDetailsModal({
     if (!playerInfo) return null;
     
     return (
-        <div className="p-6">
-            <div className="w-full flex flex-col gap-4">
-                <VideoPlayer magnetUri={playerInfo.magnetUri} title={playerInfo.title} onBack={handleBackToDetails} />
-            </div>
+      <div className="p-6">
+        <div className="w-full flex flex-col gap-4">
+          <div className="w-full aspect-video bg-black rounded-lg relative overflow-hidden">
+            <video
+              src={`/api/stream?magnet=${encodeURIComponent(playerInfo.magnetUri)}`}
+              controls
+              autoPlay
+              className="w-full h-full"
+            >
+              Your browser does not support the video tag.
+            </video>
+          </div>
+          <div className="flex justify-between items-center px-2">
+            <h3 className="text-lg font-semibold truncate">{playerInfo.title}</h3>
+            <Button onClick={handleBackToDetails} variant="outline">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to details
+            </Button>
+          </div>
         </div>
+      </div>
     );
   }
 
