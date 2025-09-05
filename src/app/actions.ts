@@ -3,7 +3,7 @@
 
 import { suggestAlternativeResolutions } from "@/ai/flows/suggest-alternative-resolutions";
 import type { SuggestAlternativeResolutionsOutput } from "@/ai/flows/suggest-alternative-resolutions";
-import { getMovieLinks, searchYts } from "@/lib/yts";
+import { getMovieLinks, getTvShowLinks, searchYts } from "@/lib/yts";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_TOKEN = process.env.TMDB_ACCESS_TOKEN!;
@@ -55,6 +55,8 @@ export async function checkYtsApiStatus() {
     try {
         const response = await fetch(`${YTS_API_BASE_URL}/list_movies.json?limit=1`);
         if (!response.ok) {
+           const errorText = await response.text();
+           console.error("YTS API Status Check Error:", { status: response.status, body: errorText });
            throw new Error(`API returned status ${response.status}`);
         }
         const data = await response.json();
@@ -93,7 +95,7 @@ export async function searchMediaAction(query: string, mediaType: 'movie' | 'tv'
 export async function getMediaDetailsAction(mediaId: number, mediaType: 'movie' | 'tv') {
   return tmdbFetch(
     `/${mediaType}/${mediaId}`,
-    "?language=en-US&append_to_response=credits,videos,images"
+    "?language=en-US&append_to_response=credits,videos,images,external_ids"
   );
 }
 
@@ -118,20 +120,24 @@ export async function getMovieLinksAction(tmdbId: string) {
 }
 
 
-export async function getTvEpisodeLinksAction(showName: string, season: number, episode: number) {
-    const query = `${showName} S${season.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}`;
-    const results = await searchYts(query);
+export async function getTvEpisodeLinksAction(tmdbId: string, showName: string, season: number, episode: number) {
+    // For TV shows, the most reliable way to find torrents is to search for season packs.
+    // We'll use the show's IMDb ID for the most accurate search.
+    const tvShowTorrents = await getTvShowLinks(tmdbId, TMDB_TOKEN);
 
-    // Also search for a full season pack, which is common
-    const seasonQuery = `${showName} Season ${season}`;
-    const seasonResults = await searchYts(seasonQuery);
+    // Additionally, we can try a more specific query as a fallback.
+    const specificQuery = `${showName} S${season.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}`;
+    const specificTorrents = await searchYts(null, specificQuery);
+    
+    // And a season-only query
+    const seasonQuery = `${showName} S${season.toString().padStart(2, '0')}`;
+    const seasonTorrents = await searchYts(null, seasonQuery);
 
-    // Combine and deduplicate results
-    const allTorrents = [...results, ...seasonResults];
+    const allTorrents = [...tvShowTorrents, ...specificTorrents, ...seasonTorrents];
     const uniqueTorrents = Array.from(new Map(allTorrents.map(t => [t.magnet, t])).values());
 
     if (uniqueTorrents.length === 0) {
-        console.log(`No torrents found for query: ${query} or ${seasonQuery}`);
+        console.log(`No torrents found for TV Show: ${showName} (TMDB ID: ${tmdbId})`);
     }
 
     return uniqueTorrents;

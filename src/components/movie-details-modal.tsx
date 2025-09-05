@@ -57,8 +57,8 @@ export function MovieDetailsModal({
   const [movieLinks, setMovieLinks] = useState<TorrentLink[]>([]);
   const [isFetchingMovieLinks, setIsFetchingMovieLinks] = useState(false);
   
-  const [episodeLinks, setEpisodeLinks] = useState<Record<number, TorrentLink[]>>({});
-  const [isFetchingEpisodeLinks, setIsFetchingEpisodeLinks] = useState<Record<number, boolean>>({});
+  const [episodeLinks, setEpisodeLinks] = useState<Record<string, TorrentLink[]>>({});
+  const [isFetchingEpisodeLinks, setIsFetchingEpisodeLinks] = useState<Record<string, boolean>>({});
 
   const [selectedMagnet, setSelectedMagnet] = useState<string | null>(null);
   const { toast } = useToast();
@@ -88,7 +88,7 @@ export function MovieDetailsModal({
             setItem(detailedItem);
             
             if (detailedItem.media_type === 'tv' && detailedItem.seasons && detailedItem.seasons.length > 0) {
-              const defaultSeason = detailedItem.seasons.find(s => s.season_number === 1) || detailedItem.seasons[0];
+              const defaultSeason = detailedItem.seasons.find(s => s.season_number > 0) || detailedItem.seasons[0];
               if (defaultSeason) {
                 handleSeasonChange(defaultSeason.season_number.toString());
               }
@@ -152,12 +152,14 @@ export function MovieDetailsModal({
   const handleEpisodePlay = async (episode: Episode) => {
     if (!item || !selectedSeason) return;
 
-    setIsFetchingEpisodeLinks(prev => ({ ...prev, [episode.id]: true }));
+    const episodeId = `${selectedSeason}-${episode.episode_number}`;
+    setIsFetchingEpisodeLinks(prev => ({ ...prev, [episodeId]: true }));
     try {
-      const links = await getTvEpisodeLinksAction(item.title, selectedSeason, episode.episode_number);
-      setEpisodeLinks(prev => ({...prev, [episode.id]: links}));
+      const links = await getTvEpisodeLinksAction(item.id, item.title, selectedSeason, episode.episode_number);
+      setEpisodeLinks(prev => ({...prev, [episodeId]: links}));
        if (links.length === 0) {
         toast({
+          variant: "destructive",
           title: "No links found",
           description: `Could not find any streaming links for ${item.title} S${selectedSeason}E${episode.episode_number}. This could be a new episode or a rare show.`,
         });
@@ -169,7 +171,7 @@ export function MovieDetailsModal({
         description: error instanceof Error ? error.message : "An unknown error occurred.",
       });
     } finally {
-      setIsFetchingEpisodeLinks(prev => ({ ...prev, [episode.id]: false }));
+      setIsFetchingEpisodeLinks(prev => ({ ...prev, [episodeId]: false }));
     }
   }
   
@@ -221,7 +223,7 @@ export function MovieDetailsModal({
                     </SelectTrigger>
                     <SelectContent>
                         {item.seasons
-                          .filter(s => s.season_number > 0 || s.name !== "Specials") // Often season 0 is specials
+                          .filter(s => s.season_number > 0 && s.episode_count > 0)
                           .map((season) => (
                             <SelectItem key={season.id} value={season.season_number.toString()}>
                                 {season.name} ({season.episode_count} episodes)
@@ -241,7 +243,9 @@ export function MovieDetailsModal({
                         </Card>
                     ))
                 ) : episodes.length > 0 ? (
-                    episodes.map(episode => (
+                    episodes.map(episode => {
+                        const episodeId = `${selectedSeason}-${episode.episode_number}`;
+                        return (
                         <Card key={episode.id} className="p-0 overflow-hidden">
                              <CardContent className="p-4 flex flex-col sm:flex-row gap-4">
                                 <div className="relative w-full sm:w-32 h-24 sm:h-20 flex-shrink-0 bg-muted rounded-md">
@@ -263,21 +267,22 @@ export function MovieDetailsModal({
                                     <p className="text-xs text-muted-foreground mb-2">{episode.air_date}</p>
                                     <p className="text-sm text-foreground/70 line-clamp-2 mb-3">{episode.overview}</p>
                                     <LinkPopover
-                                      links={episodeLinks[episode.id] || []}
-                                      isLoading={isFetchingEpisodeLinks[episode.id] || false}
+                                      links={episodeLinks[episodeId] || []}
+                                      isLoading={isFetchingEpisodeLinks[episodeId] || false}
                                       onTriggerClick={() => handleEpisodePlay(episode)}
                                       onLinkSelect={setSelectedMagnet}
                                       disabled={!streamingServerUrl}
                                     >
                                         <Button size="sm">
-                                            {isFetchingEpisodeLinks[episode.id] ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlayCircle className="mr-2 h-4 w-4" />}
+                                            {isFetchingEpisodeLinks[episodeId] ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlayCircle className="mr-2 h-4 w-4" />}
                                             Play
                                         </Button>
                                     </LinkPopover>
                                 </div>
                             </CardContent>
                         </Card>
-                    ))
+                        )
+                    })
                 ) : selectedSeason !== null ? (
                     <p className="text-muted-foreground text-sm">No episodes found for this season.</p>
                 ) : null}
@@ -369,11 +374,11 @@ export function MovieDetailsModal({
                         links={movieLinks}
                         isLoading={isFetchingMovieLinks}
                         onLinkSelect={setSelectedMagnet}
-                        disabled={!streamingServerUrl || isFetchingMovieLinks || movieLinks.length === 0}
+                        disabled={!streamingServerUrl || isFetchingMovieLinks}
                     >
                        <Button disabled={!streamingServerUrl || isFetchingMovieLinks}>
                          {isFetchingMovieLinks ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlayCircle className="mr-2 h-4 w-4" />}
-                         {isFetchingMovieLinks ? "Finding Links..." : "Play Movie"}
+                         {isFetchingMovieLinks ? "Finding Links..." : (movieLinks.length > 0 ? "Play Movie" : "No Links Found")}
                        </Button>
                     </LinkPopover>
 
