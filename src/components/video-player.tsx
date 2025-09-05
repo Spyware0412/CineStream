@@ -60,7 +60,7 @@ export function VideoPlayer({ magnetUri, title, onBack }: VideoPlayerProps) {
 
   const fetchStats = useCallback(async () => {
       try {
-          const response = await fetch(`/api/stream/stats?magnet=${encodeURIComponent(magnetUri)}`);
+          const response = await fetch(`/api/stream?stats=true&magnet=${encodeURIComponent(magnetUri)}`);
           if(response.ok) {
               const data: TorrentStats = await response.json();
               setStats(data);

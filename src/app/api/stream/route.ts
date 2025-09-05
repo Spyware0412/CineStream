@@ -1,5 +1,5 @@
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import WebTorrent, { Torrent } from 'webtorrent';
 import { Readable } from 'stream';
 
@@ -30,11 +30,31 @@ client.on('error', (err) => {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const magnetUri = searchParams.get('magnet');
+  const getStats = searchParams.get('stats');
 
   if (!magnetUri || typeof magnetUri !== 'string') {
     return new Response('Magnet link is required', { status: 400 });
   }
 
+  // Handle stats request
+  if (getStats === 'true') {
+    const torrent = torrentsMap.get(magnetUri);
+
+    if (!torrent) {
+        return new NextResponse('Torrent not found or not active on server', { status: 404 });
+    }
+
+    const stats = {
+        downloadSpeed: torrent.downloadSpeed,
+        uploadSpeed: torrent.uploadSpeed,
+        peers: torrent.numPeers,
+    };
+
+    return NextResponse.json(stats);
+  }
+
+
+  // Handle stream request
   try {
     const torrent = await getTorrent(magnetUri);
     const file = torrent.files.find(f => f.name.endsWith('.mp4') || f.name.endsWith('.mkv'));
@@ -159,9 +179,4 @@ export function getTorrent(magnetUri: string): Promise<Torrent> {
       console.log(`[WebTorrent Console] Torrent finished downloading: ${torrent.infoHash}`);
     });
   });
-}
-
-// This function is for the new stats endpoint
-export function findTorrent(magnetUri: string): Torrent | undefined {
-    return torrentsMap.get(magnetUri);
 }
