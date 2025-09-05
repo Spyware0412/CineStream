@@ -3,6 +3,7 @@
 
 import { suggestAlternativeResolutions } from "@/ai/flows/suggest-alternative-resolutions";
 import type { SuggestAlternativeResolutionsOutput } from "@/ai/flows/suggest-alternative-resolutions";
+import { getMovieLinks } from "@/lib/yts";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_TOKEN = process.env.TMDB_ACCESS_TOKEN!;
@@ -85,4 +86,8 @@ export async function getAiSuggestions(
     console.error("AI suggestion error:", error);
     throw new Error("Failed to get AI suggestions. Please try again later.");
   }
+}
+
+export async function getMovieLinksAction(tmdbId: string) {
+    return getMovieLinks(tmdbId);
 }

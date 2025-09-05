@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Star, Calendar, Clapperboard, Users, Tv } from "lucide-react";
+import { Star, Calendar, Clapperboard, Users, Tv, PlayCircle, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import type { MediaItem } from "@/types";
@@ -17,15 +17,15 @@ import {
 import { AiResolutionSuggester } from "./ai-resolution-suggester";
 import { Separator } from "./ui/separator";
 import { Skeleton } from "./ui/skeleton";
-import { getMediaDetailsAction } from "@/app/actions";
+import { getMediaDetailsAction, getMovieLinksAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 
 interface MovieDetailsModalProps {
   item?: MediaItem;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  directStreamInfo?: { hash: string; fileIndex: number; name: string; };
 }
 
 const mapTmdbDetailsToMediaItem = (tmdbItem: any, mediaType: 'movie' | 'tv'): MediaItem => ({
@@ -46,23 +46,24 @@ export function MovieDetailsModal({
   item: initialItem,
   isOpen,
   onOpenChange,
-  directStreamInfo,
 }: MovieDetailsModalProps) {
   const [item, setItem] = useState<MediaItem | undefined>(initialItem);
   const [isFetchingDetails, setIsFetchingDetails] = useState(true);
+  const [links, setLinks] = useState<{ quality: string; magnet: string }[]>([]);
+  const [isFetchingLinks, setIsFetchingLinks] = useState(false);
+  const [selectedMagnet, setSelectedMagnet] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
-    if (isOpen) {
-      if (directStreamInfo) {
-        setItem(undefined);
-        setIsFetchingDetails(false);
-      } else if (initialItem) {
+    if (isOpen && initialItem) {
         setItem(initialItem);
-        
+        setIsFetchingDetails(true);
+        setIsFetchingLinks(true);
+        setLinks([]);
+        setSelectedMagnet(null);
+
         const fetchDetails = async () => {
-          setIsFetchingDetails(true);
           try {
             const detailsData = await getMediaDetailsAction(parseInt(initialItem.id, 10), initialItem.media_type);
             const detailedItem = mapTmdbDetailsToMediaItem(detailsData, initialItem.media_type);
@@ -78,11 +79,28 @@ export function MovieDetailsModal({
             setIsFetchingDetails(false);
           }
         }
+        
+        const fetchLinks = async () => {
+            try {
+                if (initialItem.media_type === 'movie') {
+                    const linkData = await getMovieLinksAction(initialItem.id);
+                    setLinks(linkData.torrents || []);
+                }
+            } catch (error) {
+                toast({
+                    variant: "destructive",
+                    title: "Error fetching links",
+                    description: "Could not find streaming links for this movie.",
+                });
+            } finally {
+                setIsFetchingLinks(false);
+            }
+        }
 
         fetchDetails();
-      }
+        fetchLinks();
     }
-  }, [isOpen, initialItem, toast, directStreamInfo]);
+  }, [isOpen, initialItem, toast]);
   
   const renderStars = () => {
     if (!item || item.rating === undefined) return null;
@@ -169,6 +187,30 @@ export function MovieDetailsModal({
                     </div>
                   </>
                 )}
+
+                <Separator />
+                
+                {selectedMagnet && (
+                  <div className="mt-4">
+                      <video controls autoPlay className="w-full rounded-lg" src={`/api/stream?magnet=${encodeURIComponent(selectedMagnet)}`}>
+                          Your browser does not support the video tag.
+                      </video>
+                  </div>
+                )}
+                
+                <div className="space-y-3">
+                    <h3 className="text-xl font-semibold">Play Movie</h3>
+                    {isFetchingLinks && <div className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> <p>Searching for streams...</p></div>}
+                    {!isFetchingLinks && links.length === 0 && <p className="text-sm text-muted-foreground">No streaming links found.</p>}
+                    <div className="flex flex-wrap gap-2">
+                        {links.map(link => (
+                            <Button key={link.quality} onClick={() => setSelectedMagnet(link.magnet)} variant="outline">
+                                <PlayCircle className="mr-2 h-4 w-4" />
+                                Play {link.quality}
+                            </Button>
+                        ))}
+                    </div>
+                </div>
 
                 <Separator />
                                 
