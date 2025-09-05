@@ -1,30 +1,23 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import WebTorrent, { Torrent } from 'webtorrent';
-import { Readable } from 'stream';
 
 // Extend the NodeJS.Global interface to include our custom properties
 declare global {
   var webtorrentClient: WebTorrent.Instance | undefined;
-  var torrentsMap: Map<string, Torrent> | undefined;
 }
 
-
-// Use a singleton instance for the WebTorrent client and torrents map
-// This prevents re-creating them on every hot reload in development
-const client = global.webtorrentClient || new WebTorrent();
-const torrentsMap = global.torrentsMap || new Map<string, Torrent>();
-
-if (process.env.NODE_ENV !== 'production') {
-  global.webtorrentClient = client;
-  global.torrentsMap = torrentsMap;
+// Use a singleton instance for the WebTorrent client
+// This prevents re-creating it on every hot reload in development
+if (!global.webtorrentClient) {
+  global.webtorrentClient = new WebTorrent();
+  
+  // Handle potential client errors
+  global.webtorrentClient.on('error', (err) => {
+    console.error('[WebTorrent Console] Client error:', err);
+  });
 }
-
-
-// Handle potential client errors
-client.on('error', (err) => {
-  console.error('[WebTorrent Console] Client error:', err);
-});
+const client = global.webtorrentClient;
 
 
 export async function GET(req: NextRequest) {
@@ -38,21 +31,32 @@ export async function GET(req: NextRequest) {
 
   // Handle stats request
   if (getStats === 'true') {
-    const torrent = torrentsMap.get(magnetUri);
+    try {
+        const infoHashMatch = magnetUri.match(/btih:([a-fA-F0-9]{40})/);
+        if (!infoHashMatch) {
+            return new Response('Invalid magnet URI, cannot extract info hash.', { status: 400 });
+        }
+        const infoHash = infoHashMatch[1].toLowerCase();
 
-    if (!torrent) {
-        return new NextResponse('Torrent not found or not active on server', { status: 404 });
+        // Retrieve the torrent directly from the client by its info hash
+        const torrent = client.get(infoHash) as Torrent | undefined;
+
+        if (!torrent) {
+            return new NextResponse('Torrent not found or not active on server.', { status: 404 });
+        }
+
+        const stats = {
+            downloadSpeed: torrent.downloadSpeed,
+            uploadSpeed: torrent.uploadSpeed,
+            peers: torrent.numPeers,
+        };
+
+        return NextResponse.json(stats);
+    } catch (error) {
+        console.error('[WebTorrent Console] Error fetching stats:', error);
+        return new Response(error instanceof Error ? error.message : 'Failed to fetch stats', { status: 500 });
     }
-
-    const stats = {
-        downloadSpeed: torrent.downloadSpeed,
-        uploadSpeed: torrent.uploadSpeed,
-        peers: torrent.numPeers,
-    };
-
-    return NextResponse.json(stats);
   }
-
 
   // Handle stream request
   try {
@@ -119,27 +123,32 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export function getTorrent(magnetUri: string): Promise<Torrent> {
+function getTorrent(magnetUri: string): Promise<Torrent> {
   return new Promise((resolve, reject) => {
+    const infoHashMatch = magnetUri.match(/btih:([a-fA-F0-9]{40})/);
+    const infoHash = infoHashMatch ? infoHashMatch[1].toLowerCase() : null;
+
     // If torrent is already being handled, resolve immediately if ready
-    if (torrentsMap.has(magnetUri)) {
-      const existingTorrent = torrentsMap.get(magnetUri)!;
-      console.log(`[WebTorrent Console] Found existing torrent instance: ${existingTorrent.infoHash}`);
-      if (existingTorrent.ready) {
-        console.log(`[WebTorrent Console] Existing torrent is ready. Resolving.`);
-        return resolve(existingTorrent);
-      }
-      // If not ready, wait for it
-      console.log(`[WebTorrent Console] Existing torrent not ready yet. Waiting for 'ready' event.`);
-      existingTorrent.once('ready', () => {
-        console.log(`[WebTorrent Console] Existing torrent is now ready: ${existingTorrent.infoHash}`);
-        resolve(existingTorrent)
-      });
-      existingTorrent.once('error', (err) => {
-        console.error(`[WebTorrent Console] Error on existing torrent: ${magnetUri}`, err);
-        reject(err);
-      });
-      return;
+    if (infoHash) {
+        const existingTorrent = client.get(infoHash) as Torrent | undefined;
+        if (existingTorrent) {
+            console.log(`[WebTorrent Console] Found existing torrent instance: ${existingTorrent.infoHash}`);
+            if (existingTorrent.ready) {
+                console.log(`[WebTorrent Console] Existing torrent is ready. Resolving.`);
+                return resolve(existingTorrent);
+            }
+            // If not ready, wait for it
+            console.log(`[WebTorrent Console] Existing torrent not ready yet. Waiting for 'ready' event.`);
+            existingTorrent.once('ready', () => {
+                console.log(`[WebTorrent Console] Existing torrent is now ready: ${existingTorrent.infoHash}`);
+                resolve(existingTorrent);
+            });
+            existingTorrent.once('error', (err) => {
+                console.error(`[WebTorrent Console] Error on existing torrent: ${magnetUri}`, err);
+                reject(err);
+            });
+            return;
+        }
     }
 
     console.log(`[WebTorrent Console] Adding new torrent: ${magnetUri}`);
@@ -147,8 +156,6 @@ export function getTorrent(magnetUri: string): Promise<Torrent> {
     const torrent = client.add(magnetUri, {
       path: '/tmp/webtorrent/' 
     });
-    
-    torrentsMap.set(magnetUri, torrent);
 
     torrent.once('ready', () => {
       console.log(`[WebTorrent Console] Torrent ready (metadata downloaded): ${torrent.infoHash}`);
@@ -158,7 +165,7 @@ export function getTorrent(magnetUri: string): Promise<Torrent> {
 
     torrent.once('error', (err) => {
       console.error(`[WebTorrent Console] Error adding new torrent ${magnetUri}:`, err);
-      torrentsMap.delete(magnetUri); // Clean up on error
+      // No need to delete from a map, the client handles it
       reject(err);
     });
     
