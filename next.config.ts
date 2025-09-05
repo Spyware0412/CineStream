@@ -41,8 +41,6 @@ const nextConfig: NextConfig = {
     serverActions: {
         bodySizeLimit: '4mb',
     },
-    // This is required for the torrent streaming API route to have a longer timeout
-    proxyTimeout: 120000, 
   },
 };
 
