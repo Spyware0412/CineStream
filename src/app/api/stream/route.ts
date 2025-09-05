@@ -7,9 +7,10 @@ declare global {
   var webtorrentClient: WebTorrent.Instance | undefined;
 }
 
-// Use a singleton instance for the WebTorrent client
-// This prevents re-creating it on every hot reload in development
+// Use a singleton instance for the WebTorrent client and torrent map
+// This prevents re-creating them on every hot reload in development
 if (!global.webtorrentClient) {
+  console.log('[WebTorrent Console] Creating new WebTorrent client instance.');
   global.webtorrentClient = new WebTorrent();
   
   // Handle potential client errors
@@ -29,16 +30,15 @@ export async function GET(req: NextRequest) {
     return new Response('Magnet link is required', { status: 400 });
   }
 
+  const infoHashMatch = magnetUri.match(/btih:([a-fA-F0-9]{40})/);
+  if (!infoHashMatch) {
+      return new Response('Invalid magnet URI, cannot extract info hash.', { status: 400 });
+  }
+  const infoHash = infoHashMatch[1].toLowerCase();
+
   // Handle stats request
   if (getStats === 'true') {
     try {
-        const infoHashMatch = magnetUri.match(/btih:([a-fA-F0-9]{40})/);
-        if (!infoHashMatch) {
-            return new Response('Invalid magnet URI, cannot extract info hash.', { status: 400 });
-        }
-        const infoHash = infoHashMatch[1].toLowerCase();
-
-        // Retrieve the torrent directly from the client by its info hash
         const torrent = client.get(infoHash) as Torrent | undefined;
 
         if (!torrent) {
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
 
   // Handle stream request
   try {
-    const torrent = await getTorrent(magnetUri);
+    const torrent = await getTorrent(magnetUri, infoHash);
     const file = torrent.files.find(f => f.name.endsWith('.mp4') || f.name.endsWith('.mkv'));
 
     if (!file) {
@@ -123,35 +123,29 @@ export async function GET(req: NextRequest) {
   }
 }
 
-function getTorrent(magnetUri: string): Promise<Torrent> {
+function getTorrent(magnetUri: string, infoHash: string): Promise<Torrent> {
   return new Promise((resolve, reject) => {
-    const infoHashMatch = magnetUri.match(/btih:([a-fA-F0-9]{40})/);
-    const infoHash = infoHashMatch ? infoHashMatch[1].toLowerCase() : null;
-
-    // If torrent is already being handled, resolve immediately if ready
-    if (infoHash) {
-        const existingTorrent = client.get(infoHash) as Torrent | undefined;
-        if (existingTorrent) {
-            console.log(`[WebTorrent Console] Found existing torrent instance: ${existingTorrent.infoHash}`);
-            if (existingTorrent.ready) {
-                console.log(`[WebTorrent Console] Existing torrent is ready. Resolving.`);
-                return resolve(existingTorrent);
-            }
-            // If not ready, wait for it
-            console.log(`[WebTorrent Console] Existing torrent not ready yet. Waiting for 'ready' event.`);
-            existingTorrent.once('ready', () => {
-                console.log(`[WebTorrent Console] Existing torrent is now ready: ${existingTorrent.infoHash}`);
-                resolve(existingTorrent);
-            });
-            existingTorrent.once('error', (err) => {
-                console.error(`[WebTorrent Console] Error on existing torrent: ${magnetUri}`, err);
-                reject(err);
-            });
-            return;
-        }
+    
+    const existingTorrent = client.get(infoHash) as Torrent | undefined;
+    if (existingTorrent) {
+      console.log(`[WebTorrent Console] Found existing torrent instance: ${existingTorrent.infoHash}`);
+      if (existingTorrent.ready) {
+          console.log(`[WebTorrent Console] Existing torrent is ready. Resolving.`);
+          return resolve(existingTorrent);
+      }
+       console.log(`[WebTorrent Console] Existing torrent not ready yet. Waiting for 'ready' event.`);
+       existingTorrent.once('ready', () => {
+          console.log(`[WebTorrent Console] Existing torrent is now ready: ${existingTorrent.infoHash}`);
+          resolve(existingTorrent);
+       });
+       existingTorrent.once('error', (err) => {
+          console.error(`[WebTorrent Console] Error on existing torrent: ${magnetUri}`, err);
+          reject(err);
+       });
+       return;
     }
 
-    console.log(`[WebTorrent Console] Adding new torrent: ${magnetUri}`);
+    console.log(`[WebTorrent Console] Adding new torrent: ${magnetUri.substring(0, 50)}...`);
     
     const torrent = client.add(magnetUri, {
       path: '/tmp/webtorrent/' 
@@ -163,18 +157,12 @@ function getTorrent(magnetUri: string): Promise<Torrent> {
       resolve(torrent);
     });
 
-    torrent.once('error', (err) => {
-      console.error(`[WebTorrent Console] Error adding new torrent ${magnetUri}:`, err);
-      // No need to delete from a map, the client handles it
-      reject(err);
-    });
-    
     torrent.on('download', (bytes) => {
         const progress = (torrent.progress * 100).toFixed(1);
-        const downloadSpeed = (client.downloadSpeed / 1024 / 1024).toFixed(2);
-        const uploadSpeed = (client.uploadSpeed / 1024 / 1024).toFixed(2);
-        const downloaded = (torrent.downloaded / 1024 / 1024).toFixed(2);
-        const total = (torrent.length / 1024 / 1024).toFixed(2);
+        const downloadSpeed = (torrent.downloadSpeed / 1024 / 1024).toFixed(2); // Convert to MB/s
+        const uploadSpeed = (torrent.uploadSpeed / 1024 / 1024).toFixed(2); // Convert to MB/s
+        const downloaded = (torrent.downloaded / 1024 / 1024).toFixed(2); // Convert to MB
+        const total = (torrent.length / 1024 / 1024).toFixed(2); // Convert to MB
 
         // Using process.stdout.write to create a single, updating line in the console
         process.stdout.write(`[WebTorrent Console] ${torrent.infoHash.substring(0, 8)}: ${progress}% | ↓ ${downloadSpeed} MB/s | ↑ ${uploadSpeed} MB/s | Peers: ${torrent.numPeers} | Total: ${downloaded}/${total} MB\r`);
@@ -185,5 +173,15 @@ function getTorrent(magnetUri: string): Promise<Torrent> {
       process.stdout.write('\n');
       console.log(`[WebTorrent Console] Torrent finished downloading: ${torrent.infoHash}`);
     });
+
+    torrent.on('error', (err) => {
+      console.error(`[WebTorrent Console] Error adding new torrent ${magnetUri}:`, err);
+      if (!torrent.destroyed) {
+        torrent.destroy();
+      }
+      reject(err);
+    });
   });
 }
+
+    
