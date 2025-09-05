@@ -14,6 +14,8 @@ export async function getMovieLinks(tmdbId: string, accessToken: string) {
             }
         });
         if (!tmdbRes.ok) {
+            const errorData = await tmdbRes.text();
+            console.error(`TMDB API error for ID ${tmdbId}:`, errorData);
             throw new Error('Failed to fetch movie details from TMDB');
         }
         const tmdbData = await tmdbRes.json();

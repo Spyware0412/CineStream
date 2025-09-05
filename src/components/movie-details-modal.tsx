@@ -201,7 +201,8 @@ export function MovieDetailsModal({
                 <div className="space-y-3">
                     <h3 className="text-xl font-semibold">Play Movie</h3>
                     {isFetchingLinks && <div className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> <p>Searching for streams...</p></div>}
-                    {!isFetchingLinks && links.length === 0 && <p className="text-sm text-muted-foreground">No streaming links found.</p>}
+                    {!isFetchingLinks && links.length === 0 && item.media_type === 'movie' && <p className="text-sm text-muted-foreground">No streaming links found.</p>}
+                    {!isFetchingLinks && item.media_type === 'tv' && <p className="text-sm text-muted-foreground">Streaming links are not available for TV shows.</p>}
                     <div className="flex flex-wrap gap-2">
                         {links.map(link => (
                             <Button key={link.quality} onClick={() => setSelectedMagnet(link.magnet)} variant="outline">
