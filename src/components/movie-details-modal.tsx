@@ -125,7 +125,7 @@ export function MovieDetailsModal({
       <div className="flex items-start gap-3 text-sm">
         <Icon className="w-5 h-5 text-muted-foreground mt-0.5" />
         <div>
-          <span className="font-semibold">{label}: </span>
+          <span className="font-semibold">{label}: </span> 
           <span className="text-foreground/80">{value}</span>
         </div>
       </div>
@@ -135,7 +135,7 @@ export function MovieDetailsModal({
   const renderDetails = () => {
     if (!item) return null;
     const playerUrl = selectedMagnet && streamingServerUrl
-        ? `${streamingServerUrl}?magnet=${encodeURIComponent(selectedMagnet)}`
+        ? `${streamingServerUrl}/api/stream?magnet=${encodeURIComponent(selectedMagnet)}`
         : '';
     return (
        <div className="grid md:grid-cols-3 gap-0 md:gap-6 overflow-y-auto max-h-[80vh]">
@@ -249,3 +249,5 @@ export function MovieDetailsModal({
     </Dialog>
   );
 }
+
+    
