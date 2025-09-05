@@ -121,23 +121,17 @@ export async function getMovieLinksAction(tmdbId: string) {
 
 
 export async function getTvEpisodeLinksAction(tmdbId: string, showName: string, season: number, episode: number) {
-    // For TV shows, the most reliable way to find torrents is to search for season packs.
-    // We'll use the show's IMDb ID for the most accurate search.
-    const tvShowTorrents = await getTvShowLinks(tmdbId, TMDB_TOKEN);
-
-    // Additionally, we can try a more specific query as a fallback.
-    const specificQuery = `${showName} S${season.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}`;
-    const specificTorrents = await searchYts(null, specificQuery);
-    
-    // And a season-only query
-    const seasonQuery = `${showName} S${season.toString().padStart(2, '0')}`;
-    const seasonTorrents = await searchYts(null, seasonQuery);
+    const [tvShowTorrents, specificTorrents, seasonTorrents] = await Promise.all([
+        getTvShowLinks(tmdbId, TMDB_TOKEN),
+        searchYts(null, `${showName} S${season.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}`),
+        searchYts(null, `${showName} S${season.toString().padStart(2, '0')}`)
+    ]);
 
     const allTorrents = [...tvShowTorrents, ...specificTorrents, ...seasonTorrents];
     const uniqueTorrents = Array.from(new Map(allTorrents.map(t => [t.magnet, t])).values());
 
     if (uniqueTorrents.length === 0) {
-        console.log(`No torrents found for TV Show: ${showName} (TMDB ID: ${tmdbId})`);
+        console.log(`No torrents found for TV Show: ${showName} (TMDB ID: ${tmdbId}) using multiple search strategies.`);
     }
 
     return uniqueTorrents;
