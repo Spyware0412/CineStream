@@ -63,6 +63,7 @@ export async function checkYtsApiStatus() {
         }
         return { success: true, message: "YTS API connection successful." };
     } catch (error) {
+        console.error("YTS API Status Check Error:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
         return { success: false, message: `YTS API connection failed: ${errorMessage}` };
     }
