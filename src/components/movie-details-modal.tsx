@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Star, Calendar, Clapperboard, Users, Tv, PlayCircle, Loader2 } from "lucide-react";
 
-import type { MediaItem } from "@/types";
+import type { MediaItem, Season, Episode } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -16,10 +16,12 @@ import {
 import { AiResolutionSuggester } from "./ai-resolution-suggester";
 import { Separator } from "./ui/separator";
 import { Skeleton } from "./ui/skeleton";
-import { getMediaDetailsAction, getMovieLinksAction } from "@/app/actions";
+import { getMediaDetailsAction, getMovieLinksAction, getSeasonDetailsAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Card, CardContent } from "./ui/card";
 
 interface MovieDetailsModalProps {
   item?: MediaItem;
@@ -39,6 +41,7 @@ const mapTmdbDetailsToMediaItem = (tmdbItem: any, mediaType: 'movie' | 'tv'): Me
     genre: tmdbItem.genres?.map((g: any) => g.name).join(', '),
     director: tmdbItem.credits?.crew.find((person: any) => person.job === 'Director')?.name || tmdbItem.created_by?.[0]?.name,
     actors: tmdbItem.credits?.cast.slice(0, 5).map((person: any) => person.name).join(', '),
+    seasons: tmdbItem.seasons,
 });
 
 export function MovieDetailsModal({
@@ -53,21 +56,35 @@ export function MovieDetailsModal({
   const [selectedMagnet, setSelectedMagnet] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
+  const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const [isFetchingEpisodes, setIsFetchingEpisodes] = useState(false);
+
   const streamingServerUrl = process.env.NEXT_PUBLIC_STREAMING_SERVER_URL;
 
   useEffect(() => {
     if (isOpen && initialItem) {
         setItem(initialItem);
         setIsFetchingDetails(true);
-        setIsFetchingLinks(true);
         setLinks([]);
         setSelectedMagnet(null);
+        setEpisodes([]);
+        setSelectedSeason(null);
 
         const fetchDetails = async () => {
           try {
             const detailsData = await getMediaDetailsAction(parseInt(initialItem.id, 10), initialItem.media_type);
             const detailedItem = mapTmdbDetailsToMediaItem(detailsData, initialItem.media_type);
             setItem(detailedItem);
+            
+            if (detailedItem.media_type === 'tv' && detailedItem.seasons && detailedItem.seasons.length > 0) {
+               // Season 0 is often "Specials", so prefer season 1 if it exists
+              const defaultSeason = detailedItem.seasons.find(s => s.season_number === 1) || detailedItem.seasons[0];
+              if (defaultSeason) {
+                handleSeasonChange(defaultSeason.season_number.toString());
+              }
+            }
+
           } catch (error) {
              toast({
               variant: "destructive",
@@ -81,11 +98,11 @@ export function MovieDetailsModal({
         }
         
         const fetchLinks = async () => {
+            if (initialItem.media_type !== 'movie') return;
+            setIsFetchingLinks(true);
             try {
-                if (initialItem.media_type === 'movie') {
-                    const linkData = await getMovieLinksAction(initialItem.id);
-                    setLinks(linkData || []);
-                }
+                const linkData = await getMovieLinksAction(initialItem.id);
+                setLinks(linkData || []);
             } catch (error) {
                 toast({
                     variant: "destructive",
@@ -101,6 +118,27 @@ export function MovieDetailsModal({
         fetchLinks();
     }
   }, [isOpen, initialItem, toast]);
+
+  const handleSeasonChange = async (seasonNumberStr: string) => {
+    const seasonNumber = parseInt(seasonNumberStr, 10);
+    if (!item || isNaN(seasonNumber)) return;
+
+    setSelectedSeason(seasonNumber);
+    setIsFetchingEpisodes(true);
+    setEpisodes([]);
+    try {
+        const seasonDetails = await getSeasonDetailsAction(parseInt(item.id, 10), seasonNumber);
+        setEpisodes(seasonDetails.episodes || []);
+    } catch(error) {
+        toast({
+            variant: "destructive",
+            title: "Error fetching episodes",
+            description: "Could not load episodes for this season.",
+        });
+    } finally {
+        setIsFetchingEpisodes(false);
+    }
+  }
   
   const renderStars = () => {
     if (!item || item.rating === undefined) return null;
@@ -131,11 +169,82 @@ export function MovieDetailsModal({
       </div>
     );
   };
+
+  const renderTvShowContent = () => {
+    if (!item || item.media_type !== 'tv') return null;
+
+    return (
+        <div className="mt-4">
+            <h3 className="text-xl font-semibold mb-3">Seasons</h3>
+             {isFetchingDetails ? (
+                <Skeleton className="h-10 w-48" />
+            ) : item.seasons && item.seasons.length > 0 ? (
+                <Select
+                    onValueChange={handleSeasonChange}
+                    value={selectedSeason?.toString()}
+                >
+                    <SelectTrigger className="w-[280px]">
+                        <SelectValue placeholder="Select a season" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {item.seasons
+                          .filter(s => s.season_number > 0 || s.name !== "Specials") // Often season 0 is specials
+                          .map((season) => (
+                            <SelectItem key={season.id} value={season.season_number.toString()}>
+                                {season.name} ({season.episode_count} episodes)
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            ) : (
+                <p className="text-muted-foreground text-sm">No season information available.</p>
+            )}
+
+            <div className="mt-4 space-y-4 max-h-[40vh] overflow-y-auto pr-2">
+                {isFetchingEpisodes ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                        <Card key={i} className="p-4">
+                            <Skeleton className="h-20 w-full" />
+                        </Card>
+                    ))
+                ) : episodes.length > 0 ? (
+                    episodes.map(episode => (
+                        <Card key={episode.id} className="p-0 overflow-hidden">
+                             <CardContent className="p-4 flex gap-4">
+                                <div className="relative w-32 h-20 flex-shrink-0 bg-muted rounded-md">
+                                    {episode.still_path ? (
+                                        <Image
+                                            src={`https://image.tmdb.org/t/p/w300${episode.still_path}`}
+                                            alt={`Still from ${episode.name}`}
+                                            fill
+                                            className="object-cover"
+                                        />
+                                    ) : (
+                                       <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                            <Tv className="w-8 h-8"/>
+                                       </div>
+                                    )}
+                                </div>
+                                <div className="flex-grow">
+                                    <h4 className="font-semibold">{episode.episode_number}. {episode.name}</h4>
+                                    <p className="text-xs text-muted-foreground mb-2">{episode.air_date}</p>
+                                    <p className="text-sm text-foreground/70 line-clamp-2">{episode.overview}</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))
+                ) : selectedSeason !== null ? (
+                    <p className="text-muted-foreground text-sm">No episodes found for this season.</p>
+                ) : null}
+            </div>
+        </div>
+    )
+  }
   
   const renderDetails = () => {
     if (!item) return null;
     const playerUrl = selectedMagnet && streamingServerUrl
-        ? `${streamingServerUrl}?magnet=${encodeURIComponent(selectedMagnet)}`
+        ? `${streamingServerUrl}/api/stream?magnet=${encodeURIComponent(selectedMagnet)}`
         : '';
     return (
        <div className="grid md:grid-cols-3 gap-0 md:gap-6 overflow-y-auto max-h-[80vh]">
@@ -231,6 +340,8 @@ export function MovieDetailsModal({
                     )}
                   </div>
                 )}
+
+                {item.media_type === 'tv' && renderTvShowContent()}
                 
                 <Separator />
 

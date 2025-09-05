@@ -97,6 +97,11 @@ export async function getMediaDetailsAction(mediaId: number, mediaType: 'movie' 
   );
 }
 
+export async function getSeasonDetailsAction(tvId: number, seasonNumber: number) {
+    return tmdbFetch(`/tv/${tvId}/season/${seasonNumber}`, `?language=en-US`);
+}
+
+
 export async function getAiSuggestions(
   movieTitle: string
 ): Promise<SuggestAlternativeResolutionsOutput> {
