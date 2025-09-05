@@ -106,27 +106,33 @@ export function MovieDetailsModal({
           }
         }
         
-        const fetchMovieLinks = async () => {
-            if (initialItem.media_type !== 'movie') return;
-            setIsFetchingMovieLinks(true);
-            try {
-                const linkData = await getMovieLinksAction(initialItem.id);
-                setMovieLinks(linkData || []);
-            } catch (error) {
-                toast({
-                    variant: "destructive",
-                    title: "Error fetching links",
-                    description: "Could not find streaming links for this movie.",
-                });
-            } finally {
-                setIsFetchingMovieLinks(false);
-            }
-        }
-
         fetchDetails();
-        fetchMovieLinks();
     }
   }, [isOpen, initialItem, toast]);
+
+  const handleFetchMovieLinks = async () => {
+    if (!initialItem || initialItem.media_type !== 'movie') return;
+    setIsFetchingMovieLinks(true);
+    try {
+        const linkData = await getMovieLinksAction(initialItem.id);
+        setMovieLinks(linkData || []);
+        if ((linkData || []).length === 0) {
+             toast({
+                variant: "destructive",
+                title: "No links found",
+                description: "Could not find streaming links for this movie.",
+            });
+        }
+    } catch (error) {
+        toast({
+            variant: "destructive",
+            title: "Error fetching links",
+            description: "Could not find streaming links for this movie.",
+        });
+    } finally {
+        setIsFetchingMovieLinks(false);
+    }
+  }
 
   const handleSeasonChange = async (seasonNumberStr: string) => {
     const seasonNumber = parseInt(seasonNumberStr, 10);
@@ -373,12 +379,13 @@ export function MovieDetailsModal({
                     <LinkPopover
                         links={movieLinks}
                         isLoading={isFetchingMovieLinks}
+                        onTriggerClick={handleFetchMovieLinks}
                         onLinkSelect={setSelectedMagnet}
-                        disabled={!streamingServerUrl || isFetchingMovieLinks}
+                        disabled={!streamingServerUrl || isFetchingDetails}
                     >
                        <Button disabled={!streamingServerUrl || isFetchingMovieLinks}>
                          {isFetchingMovieLinks ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlayCircle className="mr-2 h-4 w-4" />}
-                         {isFetchingMovieLinks ? "Finding Links..." : (movieLinks.length > 0 ? "Play Movie" : "No Links Found")}
+                         {isFetchingMovieLinks ? "Finding Links..." : "Play Movie"}
                        </Button>
                     </LinkPopover>
 
