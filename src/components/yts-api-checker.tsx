@@ -2,11 +2,11 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { checkTmdbApiStatus } from '@/app/actions';
+import { checkYtsApiStatus } from '@/app/actions';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
-export function TmdbApiChecker() {
+export function YtsApiChecker() {
     const [status, setStatus] = useState<{
         loading: boolean;
         success: boolean | null;
@@ -14,12 +14,12 @@ export function TmdbApiChecker() {
     }>({
         loading: true,
         success: null,
-        message: 'Checking TMDB API connection...'
+        message: 'Checking YTS API connection...'
     });
 
     useEffect(() => {
         const checkApi = async () => {
-            const result = await checkTmdbApiStatus();
+            const result = await checkYtsApiStatus();
             setStatus({
                 loading: false,
                 success: result.success,
@@ -44,7 +44,7 @@ export function TmdbApiChecker() {
             <div className="flex items-center gap-2">
                 {getIcon()}
                 <div className="flex flex-col">
-                    <span className="font-semibold text-xs">TMDB API Status</span>
+                    <span className="font-semibold text-xs">YTS API Status</span>
                     <span className="text-xs">{status.message}</span>
                 </div>
             </div>

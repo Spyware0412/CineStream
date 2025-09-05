@@ -11,6 +11,7 @@ import { MovieGrid } from "@/components/movie-grid";
 import { useToast } from "@/hooks/use-toast";
 import { TmdbApiChecker } from "@/components/tmdb-api-checker";
 import { MovieDetailsModal } from "@/components/movie-details-modal";
+import { YtsApiChecker } from "@/components/yts-api-checker";
 
 const mapTmdbToMediaItem = (tmdbItem: any, mediaType: 'movie' | 'tv'): MediaItem => ({
     id: tmdbItem.id.toString(),
@@ -148,7 +149,10 @@ export default function Home() {
       <div className="flex-1 flex flex-col">
         <Header onSearch={handleSearch} onPlayMagnet={() => {}} />
         <main className="flex-grow p-4 md:p-6 lg:p-8">
-            <TmdbApiChecker />
+            <div className="flex flex-wrap gap-4 mb-6">
+              <TmdbApiChecker />
+              <YtsApiChecker />
+            </div>
             <h1 className="text-3xl font-bold mb-6">{activeSearch}</h1>
             <MovieGrid 
               items={media}

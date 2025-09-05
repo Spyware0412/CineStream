@@ -7,6 +7,8 @@ import { getMovieLinks } from "@/lib/yts";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_TOKEN = process.env.TMDB_ACCESS_TOKEN!;
+const YTS_API_BASE_URL = "https://yts.mx/api/v2";
+
 
 async function tmdbFetch(endpoint: string, query: string = "") {
   try {
@@ -46,6 +48,23 @@ export async function checkTmdbApiStatus() {
         return { success: true, message: "TMDB API connection successful." };
     } catch (error) {
         return { success: false, message: error instanceof Error ? error.message : "An unknown error occurred." };
+    }
+}
+
+export async function checkYtsApiStatus() {
+    try {
+        const response = await fetch(`${YTS_API_BASE_URL}/list_movies.json?limit=1`);
+        if (!response.ok) {
+           throw new Error(`API returned status ${response.status}`);
+        }
+        const data = await response.json();
+        if (data.status !== 'ok') {
+            throw new Error(`API status is not 'ok'`);
+        }
+        return { success: true, message: "YTS API connection successful." };
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        return { success: false, message: `YTS API connection failed: ${errorMessage}` };
     }
 }
 
