@@ -4,10 +4,12 @@ const TORRENTIO_BASE_URL = 'https://torrentio.strem.fun';
 
 function parseTitle(title: string): {quality: string; size: string} {
   const lines = title.split('\n');
-  const quality =
-    lines.find(l =>
-      ['4K', '1080p', '720p', '480p', '360p'].some(q => l.includes(q))
-    ) || 'unknown';
+  const qualityLine = lines.find(l =>
+    ['4K', '1080p', '720p', '480p', '360p'].some(q => l.includes(q))
+  );
+  
+  const quality = qualityLine ? (qualityLine.match(/(4K|1080p|720p|480p|360p)/) || [])[0] || 'unknown' : 'unknown';
+
   const sizeMatch = title.match(/💾\s*([\d.]+\s*[GMK]?B)/);
   const size = sizeMatch ? sizeMatch[1] : 'unknown';
   return {quality, size};
@@ -35,9 +37,13 @@ export async function getTorrentioLinks(
 
     const links: TorrentLink[] = data.streams.map((stream: any) => {
       const {quality, size} = parseTitle(stream.title || '');
-      const magnet = `magnet:?xt=urn:btih:${
-        stream.infoHash
-      }&dn=${encodeURIComponent(stream.title)}`;
+       const trackers = (stream.sources || [])
+        .filter((s: string) => s.startsWith("tracker:"))
+        .map((s: string) => s.replace('tracker:', 'tr='))
+        .join('&');
+        
+      const magnet = `magnet:?xt=urn:btih:${stream.infoHash}&dn=${encodeURIComponent(stream.title)}&${trackers}`;
+      
       return {
         quality: quality,
         type: 'torrent', // Torrentio links are torrents
