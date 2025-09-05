@@ -32,3 +32,10 @@ export type Episode = {
   still_path: string | null;
   air_date: string;
 };
+
+export type TorrentLink = {
+  quality: string;
+  type: string;
+  magnet: string;
+  size: string;
+};

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Star, Calendar, Clapperboard, Users, Tv, PlayCircle, Loader2 } from "lucide-react";
 
-import type { MediaItem, Season, Episode } from "@/types";
+import type { MediaItem, Season, Episode, TorrentLink } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -16,13 +16,13 @@ import {
 import { AiResolutionSuggester } from "./ai-resolution-suggester";
 import { Separator } from "./ui/separator";
 import { Skeleton } from "./ui/skeleton";
-import { getMediaDetailsAction, getMovieLinksAction, getSeasonDetailsAction } from "@/app/actions";
+import { getMediaDetailsAction, getMovieLinksAction, getSeasonDetailsAction, getTvEpisodeLinksAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Card, CardContent } from "./ui/card";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { LinkPopover } from "./link-popover";
 
 
 interface MovieDetailsModalProps {
@@ -53,8 +53,13 @@ export function MovieDetailsModal({
 }: MovieDetailsModalProps) {
   const [item, setItem] = useState<MediaItem | undefined>(initialItem);
   const [isFetchingDetails, setIsFetchingDetails] = useState(true);
-  const [links, setLinks] = useState<{ quality: string; type: string; magnet: string; size: string; }[]>([]);
-  const [isFetchingLinks, setIsFetchingLinks] = useState(false);
+  
+  const [movieLinks, setMovieLinks] = useState<TorrentLink[]>([]);
+  const [isFetchingMovieLinks, setIsFetchingMovieLinks] = useState(false);
+  
+  const [episodeLinks, setEpisodeLinks] = useState<Record<number, TorrentLink[]>>({});
+  const [isFetchingEpisodeLinks, setIsFetchingEpisodeLinks] = useState<Record<number, boolean>>({});
+
   const [selectedMagnet, setSelectedMagnet] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -68,10 +73,13 @@ export function MovieDetailsModal({
     if (isOpen && initialItem) {
         setItem(initialItem);
         setIsFetchingDetails(true);
-        setLinks([]);
+        setMovieLinks([]);
         setSelectedMagnet(null);
         setEpisodes([]);
         setSelectedSeason(null);
+        setEpisodeLinks({});
+        setIsFetchingEpisodeLinks({});
+
 
         const fetchDetails = async () => {
           try {
@@ -80,7 +88,6 @@ export function MovieDetailsModal({
             setItem(detailedItem);
             
             if (detailedItem.media_type === 'tv' && detailedItem.seasons && detailedItem.seasons.length > 0) {
-               // Season 0 is often "Specials", so prefer season 1 if it exists
               const defaultSeason = detailedItem.seasons.find(s => s.season_number === 1) || detailedItem.seasons[0];
               if (defaultSeason) {
                 handleSeasonChange(defaultSeason.season_number.toString());
@@ -99,12 +106,12 @@ export function MovieDetailsModal({
           }
         }
         
-        const fetchLinks = async () => {
+        const fetchMovieLinks = async () => {
             if (initialItem.media_type !== 'movie') return;
-            setIsFetchingLinks(true);
+            setIsFetchingMovieLinks(true);
             try {
                 const linkData = await getMovieLinksAction(initialItem.id);
-                setLinks(linkData || []);
+                setMovieLinks(linkData || []);
             } catch (error) {
                 toast({
                     variant: "destructive",
@@ -112,12 +119,12 @@ export function MovieDetailsModal({
                     description: "Could not find streaming links for this movie.",
                 });
             } finally {
-                setIsFetchingLinks(false);
+                setIsFetchingMovieLinks(false);
             }
         }
 
         fetchDetails();
-        fetchLinks();
+        fetchMovieLinks();
     }
   }, [isOpen, initialItem, toast]);
 
@@ -139,6 +146,30 @@ export function MovieDetailsModal({
         });
     } finally {
         setIsFetchingEpisodes(false);
+    }
+  }
+
+  const handleEpisodePlay = async (episode: Episode) => {
+    if (!item || !selectedSeason) return;
+
+    setIsFetchingEpisodeLinks(prev => ({ ...prev, [episode.id]: true }));
+    try {
+      const links = await getTvEpisodeLinksAction(item.title, selectedSeason, episode.episode_number);
+      setEpisodeLinks(prev => ({...prev, [episode.id]: links}));
+       if (links.length === 0) {
+        toast({
+          title: "No links found",
+          description: `Could not find any streaming links for ${item.title} S${selectedSeason}E${episode.episode_number}. This could be a new episode or a rare show.`,
+        });
+      }
+    } catch (error) {
+       toast({
+        variant: "destructive",
+        title: "Error fetching episode links",
+        description: error instanceof Error ? error.message : "An unknown error occurred.",
+      });
+    } finally {
+      setIsFetchingEpisodeLinks(prev => ({ ...prev, [episode.id]: false }));
     }
   }
   
@@ -231,21 +262,18 @@ export function MovieDetailsModal({
                                     <h4 className="font-semibold">{episode.episode_number}. {episode.name}</h4>
                                     <p className="text-xs text-muted-foreground mb-2">{episode.air_date}</p>
                                     <p className="text-sm text-foreground/70 line-clamp-2 mb-3">{episode.overview}</p>
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          {/* The button is disabled, so we need to wrap it in a span for the tooltip to work */}
-                                          <span tabIndex={0}> 
-                                            <Button size="sm" disabled>
-                                              <PlayCircle className="mr-2 h-4 w-4" /> Play
-                                            </Button>
-                                          </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Streaming for individual TV episodes is not yet supported.</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
+                                    <LinkPopover
+                                      links={episodeLinks[episode.id] || []}
+                                      isLoading={isFetchingEpisodeLinks[episode.id] || false}
+                                      onTriggerClick={() => handleEpisodePlay(episode)}
+                                      onLinkSelect={setSelectedMagnet}
+                                      disabled={!streamingServerUrl}
+                                    >
+                                        <Button size="sm">
+                                            {isFetchingEpisodeLinks[episode.id] ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlayCircle className="mr-2 h-4 w-4" />}
+                                            Play
+                                        </Button>
+                                    </LinkPopover>
                                 </div>
                             </CardContent>
                         </Card>
@@ -261,7 +289,7 @@ export function MovieDetailsModal({
   const renderDetails = () => {
     if (!item) return null;
     const playerUrl = selectedMagnet && streamingServerUrl
-        ? `${streamingServerUrl}?magnet=${encodeURIComponent(selectedMagnet)}`
+        ? `${streamingServerUrl}/api/stream?magnet=${encodeURIComponent(selectedMagnet)}`
         : '';
     return (
        <div className="grid md:grid-cols-3 gap-0 md:gap-6 overflow-y-auto max-h-[80vh]">
@@ -336,25 +364,19 @@ export function MovieDetailsModal({
                     {!streamingServerUrl && (
                       <p className="text-destructive text-sm mb-2">Streaming server URL is not configured. Please set NEXT_PUBLIC_STREAMING_SERVER_URL in your environment variables.</p>
                     )}
-                    {isFetchingLinks ? (
-                      <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                    ) : links.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {links.map((link) => (
-                          <Button 
-                            key={link.magnet} 
-                            onClick={() => setSelectedMagnet(link.magnet)} 
-                            variant="outline"
-                            disabled={!streamingServerUrl}
-                          >
-                            <PlayCircle className="mr-2 h-4 w-4" />
-                            {`${link.quality} ${link.type.toUpperCase()}`} ({link.size})
-                          </Button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground text-sm">No streaming links found for this movie.</p>
-                    )}
+                    
+                    <LinkPopover
+                        links={movieLinks}
+                        isLoading={isFetchingMovieLinks}
+                        onLinkSelect={setSelectedMagnet}
+                        disabled={!streamingServerUrl || isFetchingMovieLinks || movieLinks.length === 0}
+                    >
+                       <Button disabled={!streamingServerUrl || isFetchingMovieLinks}>
+                         {isFetchingMovieLinks ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlayCircle className="mr-2 h-4 w-4" />}
+                         {isFetchingMovieLinks ? "Finding Links..." : "Play Movie"}
+                       </Button>
+                    </LinkPopover>
+
                   </div>
                 )}
 
@@ -377,5 +399,3 @@ export function MovieDetailsModal({
     </Dialog>
   );
 }
-
-    

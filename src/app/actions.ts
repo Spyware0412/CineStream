@@ -3,7 +3,7 @@
 
 import { suggestAlternativeResolutions } from "@/ai/flows/suggest-alternative-resolutions";
 import type { SuggestAlternativeResolutionsOutput } from "@/ai/flows/suggest-alternative-resolutions";
-import { getMovieLinks } from "@/lib/yts";
+import { getMovieLinks, searchYts } from "@/lib/yts";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_TOKEN = process.env.TMDB_ACCESS_TOKEN!;
@@ -115,4 +115,24 @@ export async function getAiSuggestions(
 
 export async function getMovieLinksAction(tmdbId: string) {
     return getMovieLinks(tmdbId, TMDB_TOKEN);
+}
+
+
+export async function getTvEpisodeLinksAction(showName: string, season: number, episode: number) {
+    const query = `${showName} S${season.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}`;
+    const results = await searchYts(query);
+
+    // Also search for a full season pack, which is common
+    const seasonQuery = `${showName} Season ${season}`;
+    const seasonResults = await searchYts(seasonQuery);
+
+    // Combine and deduplicate results
+    const allTorrents = [...results, ...seasonResults];
+    const uniqueTorrents = Array.from(new Map(allTorrents.map(t => [t.magnet, t])).values());
+
+    if (uniqueTorrents.length === 0) {
+        console.log(`No torrents found for query: ${query} or ${seasonQuery}`);
+    }
+
+    return uniqueTorrents;
 }
