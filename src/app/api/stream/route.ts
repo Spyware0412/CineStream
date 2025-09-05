@@ -26,6 +26,8 @@ export async function GET(req: NextRequest) {
     const file = torrent.files.find(f => f.name.endsWith('.mp4') || f.name.endsWith('.mkv'));
 
     if (!file) {
+      // If no file found after torrent is ready, it's a real issue.
+      console.error(`No video file found in torrent: ${torrent.infoHash}`);
       return new Response('No video file found in torrent', { status: 404 });
     }
 
@@ -92,21 +94,26 @@ function getTorrent(magnetUri: string): Promise<Torrent> {
         return resolve(existingTorrent);
       }
       // If not ready, wait for it
-      existingTorrent.on('ready', () => resolve(existingTorrent));
-      existingTorrent.on('error', reject);
+      existingTorrent.once('ready', () => resolve(existingTorrent));
+      existingTorrent.once('error', reject);
       return;
     }
 
     console.log(`Adding new torrent: ${magnetUri}`);
-    const torrent = client.add(magnetUri);
+    // The main fix is here: we use .once() listeners to resolve/reject the promise.
+    const torrent = client.add(magnetUri, {
+      // Setting a path can sometimes help in environments with restricted FS
+      path: '/tmp/webtorrent/' 
+    });
+    
     torrentsMap.set(magnetUri, torrent);
 
-    torrent.on('ready', () => {
+    torrent.once('ready', () => {
       console.log(`Torrent ready: ${torrent.infoHash}`);
       resolve(torrent);
     });
 
-    torrent.on('error', (err) => {
+    torrent.once('error', (err) => {
       console.error(`Torrent error for ${magnetUri}:`, err);
       torrentsMap.delete(magnetUri); // Clean up on error
       reject(err);
