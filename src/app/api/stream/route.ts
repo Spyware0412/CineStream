@@ -3,9 +3,23 @@ import { NextRequest } from 'next/server';
 import WebTorrent, { Torrent } from 'webtorrent';
 import { Readable } from 'stream';
 
-// Use a singleton instance for the WebTorrent client
-const client = new WebTorrent();
-const torrentsMap = new Map<string, Torrent>();
+// Extend the NodeJS.Global interface to include our custom properties
+declare global {
+  var webtorrentClient: WebTorrent.Instance | undefined;
+  var torrentsMap: Map<string, Torrent> | undefined;
+}
+
+
+// Use a singleton instance for the WebTorrent client and torrents map
+// This prevents re-creating them on every hot reload in development
+const client = global.webtorrentClient || new WebTorrent();
+const torrentsMap = global.torrentsMap || new Map<string, Torrent>();
+
+if (process.env.NODE_ENV !== 'production') {
+  global.webtorrentClient = client;
+  global.torrentsMap = torrentsMap;
+}
+
 
 // Handle potential client errors
 client.on('error', (err) => {
