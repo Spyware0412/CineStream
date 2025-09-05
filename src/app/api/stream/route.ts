@@ -7,7 +7,7 @@ declare global {
   var webtorrentClient: WebTorrent.Instance | undefined;
 }
 
-// Use a singleton instance for the WebTorrent client and torrent map
+// Use a singleton instance for the WebTorrent client
 // This prevents re-creating them on every hot reload in development
 if (!global.webtorrentClient) {
   console.log('[WebTorrent Console] Creating new WebTorrent client instance.');
@@ -183,5 +183,7 @@ function getTorrent(magnetUri: string, infoHash: string): Promise<Torrent> {
     });
   });
 }
+
+    
 
     
