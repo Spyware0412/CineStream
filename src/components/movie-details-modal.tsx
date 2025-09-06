@@ -22,6 +22,7 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Card, CardContent } from "./ui/card";
+import { VideoPlayer } from "./video-player";
 
 
 interface MovieDetailsModalProps {
@@ -65,8 +66,6 @@ export function MovieDetailsModal({
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [isFetchingEpisodes, setIsFetchingEpisodes] = useState(false);
-
-  const streamingServerUrl = process.env.NEXT_PUBLIC_STREAMING_SERVER_URL;
 
   useEffect(() => {
     if (isOpen && initialItem) {
@@ -114,11 +113,11 @@ export function MovieDetailsModal({
   }, [item]);
 
   const handleFetchMovieLinks = async () => {
-    if (!initialItem || initialItem.media_type !== 'movie') return;
+    if (!item || item.media_type !== 'movie') return;
     setIsFetchingMovieLinks(true);
     setMovieLinks([]);
     try {
-        const linkData = await getMovieLinksAction(initialItem.id);
+        const linkData = await getMovieLinksAction(item.id);
         setMovieLinks(linkData || []);
         if ((linkData || []).length === 0) {
              toast({
@@ -295,7 +294,7 @@ export function MovieDetailsModal({
                                             ))}
                                         </div>
                                     ) : (
-                                        <Button size="sm" onClick={() => handleEpisodePlay(episode)} disabled={!streamingServerUrl}>
+                                        <Button size="sm" onClick={() => handleEpisodePlay(episode)}>
                                             <PlayCircle className="mr-2 h-4 w-4" />
                                             Play
                                         </Button>
@@ -313,19 +312,8 @@ export function MovieDetailsModal({
     )
   }
   
-  const getPlayerUrl = () => {
-    if (!selectedLink || !streamingServerUrl) return '';
-    
-    const { infoHash, displayName, trackers } = selectedLink;
-    const magnet = `magnet:?xt=urn:btih:${infoHash}&dn=${encodeURIComponent(displayName)}`;
-    const trackerParams = trackers.map(tr => `tr=${encodeURIComponent(tr)}`).join('&');
-    
-    return `${streamingServerUrl}/api/stream?magnet=${encodeURIComponent(magnet)}&${trackerParams}`;
-  }
-
   const renderDetails = () => {
     if (!item) return null;
-    const playerUrl = getPlayerUrl();
 
     return (
        <div className="grid md:grid-cols-3 gap-0 md:gap-6 overflow-y-auto max-h-[80vh]">
@@ -383,25 +371,22 @@ export function MovieDetailsModal({
 
                 <Separator />
                 
-                {playerUrl && (
-                  <video
-                    key={selectedLink?.infoHash}
-                    id="player"
-                    controls
-                    autoPlay
-                    src={playerUrl}
-                    className="w-full rounded-lg bg-black"
+                {selectedLink ? (
+                  <VideoPlayer
+                    key={selectedLink.infoHash}
+                    link={selectedLink}
                   />
+                ) : (
+                  <div className="aspect-video w-full rounded-lg bg-muted flex items-center justify-center">
+                    <p className="text-muted-foreground">Select a link to start streaming</p>
+                  </div>
                 )}
                 
                 {item.media_type === 'movie' && (
                   <div className="mt-4">
                     <h3 className="text-xl font-semibold mb-3">Streaming Links</h3>
-                    {!streamingServerUrl && (
-                      <p className="text-destructive text-sm mb-2">Streaming server URL is not configured. Please set NEXT_PUBLIC_STREAMING_SERVER_URL in your environment variables.</p>
-                    )}
                     
-                     <Button onClick={handleFetchMovieLinks} disabled={!streamingServerUrl || isFetchingMovieLinks}>
+                     <Button onClick={handleFetchMovieLinks} disabled={isFetchingMovieLinks}>
                         {isFetchingMovieLinks ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         ) : (
@@ -447,3 +432,5 @@ export function MovieDetailsModal({
     </Dialog>
   );
 }
+
+    
