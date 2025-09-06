@@ -2,9 +2,10 @@
 "use client"
 
 import { TorrentLink } from "@/types";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Badge } from "./ui/badge";
-import { ArrowDown, ArrowUp, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, Users, Percent } from "lucide-react";
+import { Progress } from "./ui/progress";
 
 interface VideoPlayerProps {
     link: TorrentLink;
@@ -19,6 +20,8 @@ const formatSpeed = (bytes: number) => {
 export function VideoPlayer({ link }: VideoPlayerProps) {
     const [peers, setPeers] = useState(0);
     const [downloadSpeed, setDownloadSpeed] = useState(0);
+    const [progress, setProgress] = useState(0);
+    const videoRef = useRef<HTMLVideoElement>(null);
     const streamingServerUrl = process.env.NEXT_PUBLIC_STREAMING_SERVER_URL;
 
     useEffect(() => {
@@ -34,15 +37,32 @@ export function VideoPlayer({ link }: VideoPlayerProps) {
         return () => clearInterval(interval);
     }, [link]);
 
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        const handleTimeUpdate = () => {
+            if (video.duration > 0) {
+                setProgress((video.currentTime / video.duration) * 100);
+            }
+        };
+
+        video.addEventListener('timeupdate', handleTimeUpdate);
+
+        return () => {
+            video.removeEventListener('timeupdate', handleTimeUpdate);
+        };
+    }, []);
+
 
     const getPlayerUrl = () => {
         if (!streamingServerUrl) return '';
-        
+
         const { infoHash, displayName, trackers } = link;
-        const magnet = `magnet:?xt=urn:btih:${infoHash}&dn=${encodeURIComponent(displayName)}`;
         const trackerParams = trackers.map(tr => `tr=${encodeURIComponent(tr)}`).join('&');
-        
-        return `${streamingServerUrl}/api/stream?magnet=${encodeURIComponent(magnet)}&${trackerParams}`;
+
+        const url = `${streamingServerUrl}/api/stream?xt=urn:btih:${infoHash}&dn=${encodeURIComponent(displayName)}&${trackerParams}`;
+        return url;
     }
 
     const playerUrl = getPlayerUrl();
@@ -56,31 +76,44 @@ export function VideoPlayer({ link }: VideoPlayerProps) {
     }
 
     return (
-        <div className="space-y-2">
+        <div className="space-y-4">
             <video
                 id="player"
+                ref={videoRef}
                 controls
                 autoPlay
                 src={playerUrl}
                 className="w-full rounded-lg bg-black aspect-video"
             />
-            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground px-2">
-                 <Badge variant="outline" className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-primary" />
-                    <span>{peers} Peers</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <Badge variant="outline" className="flex items-center gap-3 p-3 justify-center">
+                    <Users className="w-5 h-5 text-primary" />
+                    <div className="text-left">
+                        <p className="font-semibold">{peers} Peers</p>
+                        <p className="text-xs text-muted-foreground">Connected users</p>
+                    </div>
                 </Badge>
-                <Badge variant="outline" className="flex items-center gap-2">
-                    <ArrowDown className="w-4 h-4 text-green-500" />
-                    <span>{formatSpeed(downloadSpeed)}</span>
+                 <Badge variant="outline" className="flex items-center gap-3 p-3 justify-center">
+                    <ArrowDown className="w-5 h-5 text-green-500" />
+                    <div className="text-left">
+                        <p className="font-semibold">{formatSpeed(downloadSpeed)}</p>
+                        <p className="text-xs text-muted-foreground">Bandwidth</p>
+                    </div>
                 </Badge>
-                 <Badge variant="outline" className="flex items-center gap-2">
-                    <ArrowUp className="w-4 h-4 text-red-500" />
-                    <span>{formatSpeed(downloadSpeed / 10)}</span>
-                </Badge>
-                <p className="text-xs hidden sm:block">Note: Statistics are simulated for this prototype.</p>
+                <div className="md:col-span-1">
+                     <Badge variant="outline" className="w-full flex items-center gap-3 p-3 justify-center">
+                        <Percent className="w-5 h-5 text-accent-foreground" />
+                        <div className="text-left w-full">
+                           <div className="flex justify-between items-center mb-1">
+                             <p className="font-semibold">Completion</p>
+                             <p className="text-xs text-muted-foreground">{Math.round(progress)}%</p>
+                           </div>
+                           <Progress value={progress} className="h-2" />
+                        </div>
+                    </Badge>
+                </div>
             </div>
+             <p className="text-xs text-muted-foreground text-center">Note: Statistics are simulated for this prototype.</p>
         </div>
     )
 }
-
-    
