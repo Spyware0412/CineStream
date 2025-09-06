@@ -62,7 +62,7 @@ export function VideoPlayer({ link }: VideoPlayerProps) {
         const trackerParams = trackers.map(tr => `tr=${encodeURIComponent(tr)}`).join('&');
         const magnetURI = `magnet:?xt=urn:btih:${infoHash}`;
 
-        const url = `${streamingServerUrl}/api/stream?xt=${encodeURIComponent(infoHash)}&dn=${encodeURIComponent(displayName)}&${trackerParams}`;
+        const url = `${streamingServerUrl}/api/stream?magnet=${encodeURIComponent(infoHash)}&dn=${encodeURIComponent(displayName)}&${trackerParams}`;
         return url;
     }
 
