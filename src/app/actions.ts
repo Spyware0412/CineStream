@@ -3,7 +3,7 @@
 
 import { suggestAlternativeResolutions } from "@/ai/flows/suggest-alternative-resolutions";
 import type { SuggestAlternativeResolutionsOutput } from "@/ai/flows/suggest-alternative-resolutions";
-import { getMovieLinks } from "@/lib/yts";
+import { getMovieLinks as getYtsLinks } from "@/lib/yts";
 import { getTorrentioLinks } from "@/lib/torrentio";
 import { getExternalIds } from "@/lib/tmdb";
 
@@ -118,7 +118,7 @@ export async function getAiSuggestions(
 }
 
 export async function getMovieLinksAction(tmdbId: string) {
-    return getMovieLinks(tmdbId, TMDB_TOKEN);
+    return getYtsLinks(tmdbId, TMDB_TOKEN);
 }
 
 

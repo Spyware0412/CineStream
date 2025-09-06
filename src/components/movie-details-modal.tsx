@@ -22,7 +22,6 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Card, CardContent } from "./ui/card";
-import { LinkPopover } from "./link-popover";
 
 
 interface MovieDetailsModalProps {
@@ -252,6 +251,9 @@ export function MovieDetailsModal({
                 ) : episodes.length > 0 ? (
                     episodes.map(episode => {
                         const episodeId = `${selectedSeason}-${episode.episode_number}`;
+                        const links = episodeLinks[episodeId] || [];
+                        const isLoading = isFetchingEpisodeLinks[episodeId] || false;
+
                         return (
                         <Card key={episode.id} className="p-0 overflow-hidden">
                              <CardContent className="p-4 flex flex-col sm:flex-row gap-4">
@@ -273,18 +275,27 @@ export function MovieDetailsModal({
                                     <h4 className="font-semibold">{episode.episode_number}. {episode.name}</h4>
                                     <p className="text-xs text-muted-foreground mb-2">{episode.air_date}</p>
                                     <p className="text-sm text-foreground/70 line-clamp-2 mb-3">{episode.overview}</p>
-                                    <LinkPopover
-                                      links={episodeLinks[episodeId] || []}
-                                      isLoading={isFetchingEpisodeLinks[episodeId] || false}
-                                      onTriggerClick={() => handleEpisodePlay(episode)}
-                                      onLinkSelect={setSelectedMagnet}
-                                      disabled={!streamingServerUrl}
-                                    >
-                                        <Button size="sm">
+                                    
+                                     {isLoading ? (
+                                        <Button size="sm" disabled>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Fetching...
+                                        </Button>
+                                    ) : links.length > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {links.map(link => (
+                                                <Button key={link.magnet} size="sm" variant="outline" onClick={() => setSelectedMagnet(link.magnet)}>
+                                                   <PlayCircle className="mr-2 h-4 w-4" /> 
+                                                   {`${link.quality} (${link.size})`}
+                                                </Button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <Button size="sm" onClick={() => handleEpisodePlay(episode)} disabled={!streamingServerUrl}>
                                             <PlayCircle className="mr-2 h-4 w-4" />
                                             Play
                                         </Button>
-                                    </LinkPopover>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
@@ -377,19 +388,30 @@ export function MovieDetailsModal({
                       <p className="text-destructive text-sm mb-2">Streaming server URL is not configured. Please set NEXT_PUBLIC_STREAMING_SERVER_URL in your environment variables.</p>
                     )}
                     
-                    <LinkPopover
-                        links={movieLinks}
-                        isLoading={isFetchingMovieLinks}
-                        onTriggerClick={handleFetchMovieLinks}
-                        onLinkSelect={setSelectedMagnet}
-                        disabled={!streamingServerUrl || isFetchingDetails}
-                    >
-                       <Button disabled={!streamingServerUrl || isFetchingMovieLinks}>
-                         <PlayCircle className="mr-2 h-4 w-4" />
-                         Play Movie
-                       </Button>
-                    </LinkPopover>
-
+                     <Button onClick={handleFetchMovieLinks} disabled={!streamingServerUrl || isFetchingMovieLinks}>
+                        {isFetchingMovieLinks ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <PlayCircle className="mr-2 h-4 w-4" />
+                        )}
+                        {isFetchingMovieLinks ? 'Fetching...' : 'Fetch Links'}
+                    </Button>
+                    
+                    {movieLinks.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                            <h4 className="font-semibold">Select Quality:</h4>
+                            <div className="flex flex-wrap gap-2">
+                            {movieLinks.map(link => (
+                                <Button key={link.magnet} variant="outline" onClick={() => setSelectedMagnet(link.magnet)}>
+                                    {`${link.quality} (${link.size})`}
+                                </Button>
+                            ))}
+                            </div>
+                        </div>
+                    )}
+                     {movieLinks.length === 0 && !isFetchingMovieLinks && (
+                        <p className="text-sm text-muted-foreground mt-2">Click the button to find available streaming links.</p>
+                    )}
                   </div>
                 )}
 
