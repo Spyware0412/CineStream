@@ -4,7 +4,7 @@
 import { TorrentLink } from "@/types";
 import { useEffect, useState, useRef } from "react";
 import { Badge } from "./ui/badge";
-import { ArrowDown, ArrowUp, Users, Percent } from "lucide-react";
+import { ArrowDown, Users, Percent } from "lucide-react";
 import { Progress } from "./ui/progress";
 
 interface VideoPlayerProps {
@@ -60,8 +60,9 @@ export function VideoPlayer({ link }: VideoPlayerProps) {
 
         const { infoHash, displayName, trackers } = link;
         const trackerParams = trackers.map(tr => `tr=${encodeURIComponent(tr)}`).join('&');
+        const magnetURI = `magnet:?xt=urn:btih:${infoHash}`;
 
-        const url = `${streamingServerUrl}/api/stream?xt=urn:btih:${infoHash}&dn=${encodeURIComponent(displayName)}&${trackerParams}`;
+        const url = `${streamingServerUrl}/api/stream?xt=${encodeURIComponent(infoHash)}&dn=${encodeURIComponent(displayName)}&${trackerParams}`;
         return url;
     }
 
