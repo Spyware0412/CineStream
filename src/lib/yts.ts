@@ -2,18 +2,27 @@ import type {TorrentLink} from '@/types';
 import {getExternalIds} from './tmdb';
 
 const YTS_API_BASE_URL = 'https://yts.mx/api/v2';
+const YTS_TRACKERS = [
+    "udp://glotorrents.pw:6969/announce",
+    "udp://tracker.opentrackr.org:1337/announce",
+    "udp://torrent.gresille.org:80/announce",
+    "udp://tracker.openbittorrent.com:80",
+    "udp://tracker.coppersurfer.tk:6969",
+    "udp://tracker.leechers-paradise.org:6969",
+    "udp://p4p.arenabg.ch:1337",
+    "udp://tracker.internetwarriors.net:1337",
+];
 
 export async function searchYts(imdbId: string | null, query?: string) {
   try {
     let searchUrl = `${YTS_API_BASE_URL}/list_movies.json?limit=50&sort_by=peers&query_term=`;
 
-    // Prioritize IMDb ID for accuracy
     if (imdbId) {
       searchUrl += encodeURIComponent(imdbId);
     } else if (query) {
       searchUrl += encodeURIComponent(query);
     } else {
-      return []; // Not enough info to search
+      return [];
     }
 
     const ytsRes = await fetch(searchUrl);
@@ -32,8 +41,6 @@ export async function searchYts(imdbId: string | null, query?: string) {
       return [];
     }
 
-    // If we searched by IMDb ID, we can be confident the first result is the correct one.
-    // YTS API often returns only one movie when queried by imdb_id.
     const relevantMovies = imdbId
       ? ytsData.data.movies.slice(0, 1)
       : ytsData.data.movies;
@@ -43,9 +50,9 @@ export async function searchYts(imdbId: string | null, query?: string) {
         quality: t.quality,
         type: t.type,
         size: t.size,
-        magnet: `magnet:?xt=urn:btih:${t.hash}&dn=${encodeURIComponent(
-          movie.title_long
-        )}&tr=udp://glotorrents.pw:6969/announce&tr=udp://tracker.opentrackr.org:1337/announce&tr=udp://torrent.gresille.org:80/announce&tr=udp://tracker.openbittorrent.com:80&tr=udp://tracker.coppersurfer.tk:6969&tr=udp://tracker.leechers-paradise.org:6969&tr=udp://p4p.arenabg.ch:1337&tr=udp://tracker.internetwarriors.net:1337`,
+        infoHash: t.hash,
+        displayName: movie.title_long,
+        trackers: YTS_TRACKERS,
         title: movie.title_long,
       }))
     );

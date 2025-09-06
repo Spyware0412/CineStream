@@ -59,7 +59,7 @@ export function MovieDetailsModal({
   const [episodeLinks, setEpisodeLinks] = useState<Record<string, TorrentLink[]>>({});
   const [isFetchingEpisodeLinks, setIsFetchingEpisodeLinks] = useState<Record<string, boolean>>({});
 
-  const [selectedMagnet, setSelectedMagnet] = useState<string | null>(null);
+  const [selectedLink, setSelectedLink] = useState<TorrentLink | null>(null);
   const { toast } = useToast();
 
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
@@ -73,7 +73,7 @@ export function MovieDetailsModal({
         setItem(initialItem);
         setIsFetchingDetails(true);
         setMovieLinks([]);
-        setSelectedMagnet(null);
+        setSelectedLink(null);
         setEpisodes([]);
         setSelectedSeason(null);
         setEpisodeLinks({});
@@ -108,6 +108,10 @@ export function MovieDetailsModal({
         fetchDetails();
     }
   }, [isOpen, initialItem, toast]);
+  
+  useEffect(() => {
+    setSelectedLink(null);
+  }, [item]);
 
   const handleFetchMovieLinks = async () => {
     if (!initialItem || initialItem.media_type !== 'movie') return;
@@ -283,8 +287,8 @@ export function MovieDetailsModal({
                                         </Button>
                                     ) : links.length > 0 ? (
                                         <div className="flex flex-wrap gap-2">
-                                            {links.map(link => (
-                                                <Button key={link.magnet} size="sm" variant="outline" onClick={() => setSelectedMagnet(link.magnet)}>
+                                            {links.map((link, idx) => (
+                                                <Button key={`${link.infoHash}-${idx}`} size="sm" variant="outline" onClick={() => setSelectedLink(link)}>
                                                    <PlayCircle className="mr-2 h-4 w-4" /> 
                                                    {`${link.quality} (${link.size})`}
                                                 </Button>
@@ -309,11 +313,20 @@ export function MovieDetailsModal({
     )
   }
   
+  const getPlayerUrl = () => {
+    if (!selectedLink || !streamingServerUrl) return '';
+    
+    const { infoHash, displayName, trackers } = selectedLink;
+    const magnet = `magnet:?xt=urn:btih:${infoHash}&dn=${encodeURIComponent(displayName)}`;
+    const trackerParams = trackers.map(tr => `tr=${encodeURIComponent(tr)}`).join('&');
+    
+    return `${streamingServerUrl}/api/stream?magnet=${encodeURIComponent(magnet)}&${trackerParams}`;
+  }
+
   const renderDetails = () => {
     if (!item) return null;
-    const playerUrl = selectedMagnet && streamingServerUrl
-        ? `${streamingServerUrl}/api/stream?magnet=${encodeURIComponent(selectedMagnet)}`
-        : '';
+    const playerUrl = getPlayerUrl();
+
     return (
        <div className="grid md:grid-cols-3 gap-0 md:gap-6 overflow-y-auto max-h-[80vh]">
           <div className="md:col-span-1 p-6 hidden md:block">
@@ -372,7 +385,7 @@ export function MovieDetailsModal({
                 
                 {playerUrl && (
                   <video
-                    key={selectedMagnet}
+                    key={selectedLink?.infoHash}
                     id="player"
                     controls
                     autoPlay
@@ -401,8 +414,8 @@ export function MovieDetailsModal({
                         <div className="mt-4 space-y-2">
                             <h4 className="font-semibold">Select Quality:</h4>
                             <div className="flex flex-wrap gap-2">
-                            {movieLinks.map(link => (
-                                <Button key={link.magnet} variant="outline" onClick={() => setSelectedMagnet(link.magnet)}>
+                            {movieLinks.map((link, idx) => (
+                                <Button key={`${link.infoHash}-${idx}`} variant="outline" onClick={() => setSelectedLink(link)}>
                                     {`${link.quality} (${link.size})`}
                                 </Button>
                             ))}

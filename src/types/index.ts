@@ -36,6 +36,9 @@ export type Episode = {
 export type TorrentLink = {
   quality: string;
   type: string;
-  magnet: string;
+  infoHash: string;
+  displayName: string;
+  trackers: string[];
   size: string;
 };
+

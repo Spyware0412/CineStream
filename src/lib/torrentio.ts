@@ -39,17 +39,15 @@ export async function getTorrentioLinks(
       const {quality, size} = parseTitle(stream.title || '');
        const trackers = (stream.sources || [])
         .filter((s: string) => s.startsWith("tracker:"))
-        .map((s: string) => s.replace('tracker:', 'tr='))
-        .join('&');
-        
-      const magnet = `magnet:?xt=urn:btih:${stream.infoHash}&dn=${encodeURIComponent(stream.title)}&${trackers}`;
+        .map((s: string) => s.replace('tracker:', ''));
       
       return {
         quality: quality,
-        type: 'torrent', // Torrentio links are torrents
+        type: 'torrent', 
         size: size,
-        magnet: magnet,
-        title: stream.title,
+        infoHash: stream.infoHash,
+        displayName: stream.title,
+        trackers: trackers,
       };
     });
 
